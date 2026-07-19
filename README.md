@@ -3,6 +3,7 @@
 > An enterprise-grade, open-source, offline-first Personal AI Engineering Platform that runs primarily on a local laptop and evolves into a personal AI operating system.
 
 [![Status](https://img.shields.io/badge/status-architecture--phase-blue)]()
+[![Phases](https://img.shields.io/badge/phases-09%2F12%20drafted-blue)]()
 [![License](https://img.shields.io/badge/license-TBD-lightgrey)]()
 [![Offline First](https://img.shields.io/badge/offline-first-success)]()
 [![Open Source](https://img.shields.io/badge/stack-open--source-brightgreen)]()
@@ -45,15 +46,15 @@ comparable in ambition to GitHub Copilot Agent while remaining fully open and ex
 | # | Phase | Status | Deliverables |
 |---|-------|--------|--------------|
 | 01 | Project Vision | ✅ Drafted | [docs](docs/phases/01-project-vision.md) · [prompt](.github/prompts/01-project-vision.prompt.md) |
-| 02 | Requirements Analysis | ⏳ Pending approval of 01 | — |
-| 03 | Market Research | ⏳ | — |
-| 04 | Feasibility Study (Models) | ⏳ | — |
-| 05 | Enterprise Architecture | ⏳ | — |
-| 06 | Technology Selection | ⏳ | — |
-| 07 | Agent Ecosystem | ⏳ | — |
-| 08 | Knowledge & Memory Architecture | ⏳ | — |
-| 09 | VS Code Integration | ⏳ | — |
-| 10 | Implementation Roadmap | ⏳ | — |
+| 02 | Requirements Analysis | ✅ Drafted | [docs](docs/phases/02-requirements-analysis.md) · [prompt](.github/prompts/02-requirements-analysis.prompt.md) |
+| 03 | Market Research | ✅ Drafted | [docs](docs/phases/03-market-research.md) · [prompt](.github/prompts/03-market-research.prompt.md) |
+| 04 | Feasibility Study (Models) | ✅ Drafted | [docs](docs/phases/04-feasibility-study.md) · [prompt](.github/prompts/04-feasibility-study.prompt.md) |
+| 05 | Enterprise Architecture | ✅ Drafted | [docs](docs/phases/05-enterprise-architecture.md) · [prompt](.github/prompts/05-enterprise-architecture.prompt.md) |
+| 06 | Technology Selection | ✅ Drafted | [docs](docs/phases/06-technology-selection.md) · [prompt](.github/prompts/06-technology-selection.prompt.md) |
+| 07 | Agent Ecosystem | ✅ Drafted | [docs](docs/phases/07-agent-ecosystem.md) · [prompt](.github/prompts/07-agent-ecosystem.prompt.md) |
+| 08 | Knowledge & Memory Architecture | ✅ Drafted | [docs](docs/phases/08-knowledge-memory.md) · [prompt](.github/prompts/08-knowledge-memory.prompt.md) |
+| 09 | VS Code Integration | ✅ Drafted | [docs](docs/phases/09-vscode-integration.md) · [prompt](.github/prompts/09-vscode-integration.prompt.md) |
+| 10 | Implementation Roadmap | ⏳ Pending approval of 09 | [prompt](.github/prompts/10-implementation-roadmap.prompt.md) |
 | 11 | Testing & Benchmarking | ⏳ | — |
 | 12 | Future Roadmap | ⏳ | — |
 
@@ -118,7 +119,28 @@ conditions for that phase.
 
 ---
 
-## 7. Current Status
+## 7. Architecture Decision Records (ADRs)
 
-**Phase 01 (Project Vision) is drafted and awaiting your approval.**
-No further phases will be started automatically.
+Key decisions are recorded in [docs/adr/](docs/adr/):
+
+| ADR | Decision |
+|-----|----------|
+| [0001](docs/adr/0001-design-first-gated-phases.md) | Design-first, gated phases |
+| [0002](docs/adr/0002-offline-first-priority.md) | Offline-first priority |
+| [0003](docs/adr/0003-build-vs-adopt.md) | Build vs. adopt — integrate building blocks |
+| [0004](docs/adr/0004-default-model-selection.md) | Default local model selection |
+| [0005](docs/adr/0005-container-topology.md) | Container topology (one Compose stack, two networks) |
+| [0006](docs/adr/0006-security-model.md) | Security model (local-first + least-privilege tools) |
+| [0007](docs/adr/0007-reference-stack.md) | Reference technology stack |
+| [0008](docs/adr/0008-agent-orchestration.md) | Agent orchestration (supervisor/router) |
+| [0009](docs/adr/0009-vector-store-and-memory.md) | Vector store & memory architecture |
+| [0010](docs/adr/0010-vscode-integration-strategy.md) | VS Code integration strategy |
+| [0100](docs/adr/0100-gpu-and-reuse-strategy.md) | GPU acceleration & multi-workspace reuse |
+
+---
+
+## 8. Current Status
+
+**Phases 01–09 are drafted** (architecture complete through VS Code integration), each
+with documentation, Mermaid diagrams, and ADRs. **Phase 10 (Implementation Roadmap) is
+awaiting approval** before any implementation begins. No further phases start automatically.
