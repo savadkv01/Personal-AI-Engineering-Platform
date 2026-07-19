@@ -1,0 +1,49 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+build/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Logs / temp
+*.log
+tmp/
+temp/
+
+# Local model weights & data (large, machine-specific)
+models/**/*.gguf
+models/**/*.bin
+models/**/*.safetensors
+*.gguf
+*.bin
+*.safetensors
+
+# Vector store / RAG data
+rag/data/
+knowledge/index/
+*.sqlite
+*.duckdb
