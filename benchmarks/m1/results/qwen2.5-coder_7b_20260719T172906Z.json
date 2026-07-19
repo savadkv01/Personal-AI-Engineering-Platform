@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-07-19T17:29:06.900693+00:00",
+  "host": "http://127.0.0.1:11435",
+  "model": "qwen2.5-coder:7b",
+  "runs": [
+    {
+      "ttft_s": 0.278,
+      "tokens_per_s": 3.58,
+      "eval_count": 200,
+      "prompt_eval_count": 64,
+      "load_s": 0.029,
+      "prompt_eval_s": 0.227,
+      "total_s": 56.155,
+      "wall_s": 58.872
+    },
+    {
+      "ttft_s": 0.388,
+      "tokens_per_s": 3.45,
+      "eval_count": 200,
+      "prompt_eval_count": 64,
+      "load_s": 0.03,
+      "prompt_eval_s": 0.327,
+      "total_s": 58.296,
+      "wall_s": 61.159
+    },
+    {
+      "ttft_s": 0.482,
+      "tokens_per_s": 3.69,
+      "eval_count": 200,
+      "prompt_eval_count": 64,
+      "load_s": 0.03,
+      "prompt_eval_s": 0.42,
+      "total_s": 54.637,
+      "wall_s": 57.289
+    }
+  ],
+  "median_ttft_s": 0.388,
+  "median_tokens_per_s": 3.58,
+  "peak_ram_mib": 5081.1
+}

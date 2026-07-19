@@ -57,6 +57,9 @@ so models/runtimes/clients remain hot-swappable (O2/FR-002, [Phase 05 §2.2](../
 
 **Follow-ups**
 - Validate the stack with the **M1 integration spike** (Ollama + LlamaIndex + Qdrant + Continue) in Phase 10.
+  → **Done (2026-07-19):** the [M1 spike](../../implementation/M1-llm-runtime.md) ran
+  Ollama **0.6.2** + LlamaIndex + Qdrant **v1.12.6** end-to-end behind the OpenAI-compatible
+  nginx gateway and returned a citation-backed answer offline. The seam contract holds.
 - Pin exact **versions + SPDX license IDs** in a licenses-of-record file at first implementation.
 - Re-verify ⚠ terms (Open WebUI branding, Grafana/Loki AGPL, Langfuse non-core, n8n) before enabling those components.
 - Define **persona configs + tool policies** (Phase 07) and **memory scope/retention** (Phase 08 / M5).

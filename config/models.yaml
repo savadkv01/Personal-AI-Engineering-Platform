@@ -1,0 +1,40 @@
+# PAIEP model catalog — default local models per hardware profile.
+# ---------------------------------------------------------------------------
+# Single source of truth for which GGUF models each profile pulls via Ollama.
+# Anchored to ADR 0004 (default model selection) and ADR 0007 (reference stack).
+# Model-agnostic principle (O2/FR-002): everything here is swappable; nothing
+# downstream hard-codes a model. The active profile is set by PAIEP_PROFILE in
+# docker/.env (cpu | gpu | server). scripts/pull-models.sh reads this file.
+#
+# Tiers:
+#   chat   - general assistant / coding default (interactive)
+#   embed  - embeddings for RAG + memory
+#   draft  - small speculative/draft model (optional)
+#   reason - optional reasoning specialist (optional)
+# ---------------------------------------------------------------------------
+
+profiles:
+  # Profile A+ (primary machine): Intel i7-10610U, 32 GB RAM, CPU-only.
+  # Sweet spot = 7-8B Q4_K_M. This is the M1 reference benchmark target.
+  cpu:
+    chat: qwen2.5-coder:7b        # 7B Q4_K_M coding/chat default (ADR 0004)
+    embed: nomic-embed-text       # embeddings default (ADR 0004/0007)
+    draft: null                   # enable later for speculative decoding
+    reason: null                  # e.g. phi4 / deepseek-r1 distill (optional)
+
+  # Profiles B/C: consumer/workstation GPU — larger/faster models, GPU offload.
+  gpu:
+    chat: qwen2.5-coder:14b       # step up when a GPU is present
+    embed: nomic-embed-text
+    draft: llama3.2:1b            # draft model for speculative decoding
+    reason: phi4
+
+  # Profile D: always-on home server — heavier reasoning, optional vLLM later.
+  server:
+    chat: qwen2.5-coder:32b
+    embed: mxbai-embed-large
+    draft: llama3.2:1b
+    reason: phi4
+
+# Which tiers pull-models.sh pulls by default (skips null entries).
+pull_order: [chat, embed, draft, reason]

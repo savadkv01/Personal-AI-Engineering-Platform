@@ -1,0 +1,167 @@
+# PAIEP — Base Compose stack (M0 baseline)
+# ---------------------------------------------------------------------------
+# Reproducible container foundation every later milestone builds on.
+# Nothing AI-specific is defined here yet (see implementation/M0-baseline.md).
+#
+# Topology (ADR 0005): two-network split
+#   - edge    : only host-facing services attach; published on 127.0.0.1 only.
+#   - backend : internal-only; data/compute services (added M1+) live here.
+# Services are gated behind Compose *profiles* so each milestone/hardware
+# profile enables only what it needs.
+# ---------------------------------------------------------------------------
+
+name: ${COMPOSE_PROJECT_NAME:-paiep}
+
+# --- Networks (ADR 0005 / ADR 0006: loopback-only host surface) ------------
+networks:
+  edge:
+    name: ${COMPOSE_PROJECT_NAME:-paiep}_edge
+    driver: bridge
+  backend:
+    name: ${COMPOSE_PROJECT_NAME:-paiep}_backend
+    driver: bridge
+    internal: true # not reachable from host or LAN
+
+# --- Named volumes (Phase 05 §3): all persistent state lives here ----------
+# Empty at M0. Populated later: models=M1, vectors=M2/M3, db+memory=M5, kb=M3.
+volumes:
+  paiep_models:
+    name: ${COMPOSE_PROJECT_NAME:-paiep}_models
+  paiep_vectors:
+    name: ${COMPOSE_PROJECT_NAME:-paiep}_vectors
+  paiep_db:
+    name: ${COMPOSE_PROJECT_NAME:-paiep}_db
+  paiep_kb:
+    name: ${COMPOSE_PROJECT_NAME:-paiep}_kb
+  paiep_memory:
+    name: ${COMPOSE_PROJECT_NAME:-paiep}_memory
+
+services:
+  # -------------------------------------------------------------------------
+  # ping — trivial health/topology probe (profile: core).
+  # Proves loopback-only publishing, the edge network, and healthchecks.
+  # Retired once the real M1 gateway becomes the edge service.
+  # -------------------------------------------------------------------------
+  ping:
+    image: nginx:alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-paiep}_ping
+    profiles: ["core"]
+    restart: unless-stopped
+    networks: [edge]
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${PING_HOST_PORT:-8080}:80"
+    # Mount every named volume (read-only) purely to materialize them at M0 and
+    # prove persistence. Later milestones mount these into their real owners
+    # (models=M1, vectors=M2/M3, db+memory=M5, kb=M3) and this probe is retired.
+    volumes:
+      - paiep_models:/mnt/models:ro
+      - paiep_vectors:/mnt/vectors:ro
+      - paiep_db:/mnt/db:ro
+      - paiep_kb:/mnt/kb:ro
+      - paiep_memory:/mnt/memory:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:80/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # -------------------------------------------------------------------------
+  # ollama — local LLM runtime (llama.cpp under the hood). [M1]
+  # Profiles: inference (bare runtime) | gateway (behind the seam) | spike.
+  # On `edge` so it can pull models + be published on loopback for validation;
+  # on `backend` so the gateway/qdrant/spike reach it privately as `ollama`.
+  # Models persist in the paiep_models named volume (re-pullable → reversible).
+  # -------------------------------------------------------------------------
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.6.2}
+    container_name: ${COMPOSE_PROJECT_NAME:-paiep}_ollama
+    profiles: ["inference", "gateway", "spike"]
+    restart: unless-stopped
+    networks: [edge, backend]
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${OLLAMA_HOST_PORT:-11434}:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-30m}
+    volumes:
+      - paiep_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # -------------------------------------------------------------------------
+  # gateway — OpenAI-compatible seam in front of Ollama (ADR 0005/0006). [M1]
+  # Thin nginx reverse proxy adding a bearer-token auth stub + a global
+  # concurrency limit. The ONLY intended host-facing service. Config is
+  # rendered from docker/gateway/*.template via the image's envsubst step.
+  # -------------------------------------------------------------------------
+  gateway:
+    image: ${GATEWAY_IMAGE:-nginx:1.27-alpine}
+    container_name: ${COMPOSE_PROJECT_NAME:-paiep}_gateway
+    profiles: ["gateway", "spike"]
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks: [edge, backend]
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${GATEWAY_HOST_PORT:-8081}:80"
+    environment:
+      - GATEWAY_TOKEN=${GATEWAY_TOKEN:-paiep-local-dev-token}
+      - GATEWAY_MAX_CONCURRENCY=${GATEWAY_MAX_CONCURRENCY:-4}
+      - OLLAMA_UPSTREAM=ollama:11434
+      # Only substitute PAIEP vars in templates; leave nginx $vars intact.
+      - NGINX_ENVSUBST_FILTER=^(GATEWAY_TOKEN|GATEWAY_MAX_CONCURRENCY|OLLAMA_UPSTREAM)$$
+    volumes:
+      - ./gateway:/etc/nginx/templates:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:80/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # -------------------------------------------------------------------------
+  # qdrant — vector DB for the M1 integration spike only (thin). [M1 spike]
+  # Deepened in M2 (collections, payload filters, snapshots). Backend-private;
+  # 6333 published on loopback purely to inspect the spike's collection.
+  # -------------------------------------------------------------------------
+  qdrant:
+    image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.12.6}
+    container_name: ${COMPOSE_PROJECT_NAME:-paiep}_qdrant
+    profiles: ["spike"]
+    restart: unless-stopped
+    networks: [edge, backend]
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${QDRANT_HOST_PORT:-6333}:6333"
+    volumes:
+      - paiep_vectors:/qdrant/storage
+
+  # -------------------------------------------------------------------------
+  # spike — one-shot M1 integration test: Ollama -> LlamaIndex -> Qdrant. [M1]
+  # Not a long-running service. Run it explicitly once the stack + models are
+  # up:  docker compose --profile spike run --rm spike
+  # Reaches ollama/qdrant privately over the backend network.
+  # -------------------------------------------------------------------------
+  spike:
+    build:
+      context: ../experiments/m1-spike
+    image: ${COMPOSE_PROJECT_NAME:-paiep}_m1_spike
+    container_name: ${COMPOSE_PROJECT_NAME:-paiep}_m1_spike
+    profiles: ["spike"]
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    networks: [backend]
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - QDRANT_URL=http://qdrant:6333
+      - CHAT_MODEL=${CHAT_MODEL:-qwen2.5-coder:7b}
+      - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}

@@ -1,0 +1,59 @@
+# PAIEP M1 gateway — OpenAI-compatible seam in front of Ollama.
+# ---------------------------------------------------------------------------
+# Thin nginx reverse proxy that adds two security stubs (ADR 0006) without
+# coupling the platform to any model or runtime (OpenAI-API contract, ADR 0007):
+#   1. Bearer-token auth  — every /v1/* call must present the shared token.
+#   2. Concurrency limit  — cap simultaneous in-flight requests (protects CPU).
+#
+# This file is a TEMPLATE. The nginx image renders it to
+# /etc/nginx/conf.d/default.conf at start via envsubst, substituting only the
+# PAIEP_* vars named in NGINX_ENVSUBST_FILTER (nginx $vars are preserved).
+# Included inside the stock http{} block, so http-context directives are valid.
+# ---------------------------------------------------------------------------
+
+# Concurrency limit zone (keyed by server name → effectively a global cap).
+limit_conn_zone $server_name zone=paiep_gw:10m;
+
+server {
+    listen 80;
+    server_name _;
+
+    # Return JSON on limit rejection so clients see an OpenAI-ish error shape.
+    limit_conn_status 503;
+
+    # --- Unauthenticated liveness probe (used by the Docker healthcheck) ---
+    location = /health {
+        access_log off;
+        default_type application/json;
+        return 200 '{"status":"ok","service":"paiep-gateway"}';
+    }
+
+    # --- OpenAI-compatible surface: /v1/chat/completions, /v1/embeddings ---
+    location /v1/ {
+        # nginx-generated responses (e.g. the 401 below) are JSON; proxied
+        # responses keep the upstream Content-Type.
+        default_type application/json;
+
+        # Concurrency limit stub — reject beyond the configured ceiling (503).
+        limit_conn paiep_gw ${GATEWAY_MAX_CONCURRENCY};
+
+        # Bearer-token auth stub — reject anything without the shared token.
+        if ($http_authorization != "Bearer ${GATEWAY_TOKEN}") {
+            return 401 '{"error":{"message":"missing or invalid API key","type":"unauthorized"}}';
+        }
+
+        # Proxy to Ollama's OpenAI-compatible endpoints on the backend network.
+        proxy_pass http://${OLLAMA_UPSTREAM}/v1/;
+        proxy_set_header Host $host;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_read_timeout 300s;   # long generations on CPU
+        proxy_buffering off;       # stream tokens as they arrive
+    }
+
+    # Everything else: explicit JSON 404 (no directory listing, no defaults).
+    location / {
+        default_type application/json;
+        return 404 '{"error":{"message":"not found","type":"invalid_request_error"}}';
+    }
+}

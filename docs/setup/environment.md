@@ -102,3 +102,43 @@ The platform is designed to serve **all workspaces on this machine**:
 - Long-term memory scope (global vs per-project) is decided in Phase 08 / milestone M5.
 - Formalized in milestone **M7 (VS Code integration)**.
 
+## 10. M0 Baseline — Compose Bootstrap
+
+The reproducible container foundation ([`implementation/M0-baseline.md`](../../implementation/M0-baseline.md))
+lives in [`docker/`](../../docker/). It is intentionally AI-free: a two-network topology
+([ADR 0005](../adr/0005-container-topology.md)), named volumes for all future state, an `.env` template,
+and a trivial `ping` health service gated behind the `core` Compose profile.
+
+### Quick start (inside WSL2/Ubuntu, from repo root)
+
+```bash
+# One-shot: verify prereqs, create docker/.env, validate, and bring up 'core'
+bash scripts/bootstrap.sh
+
+# Or drive it with make
+cd docker
+cp .env.example .env      # first time only (git-ignored)
+make config               # docker compose config -q  → "compose config OK"
+make up                   # docker compose --profile core up -d
+make health               # show container status + loopback port bindings
+make down                 # stop (named volumes/data preserved)
+```
+
+Health probe once up: `http://127.0.0.1:8080/` (override via `PING_HOST_PORT` in `docker/.env`).
+
+### Topology & profile matrix
+
+| Element | Value | Notes |
+|---------|-------|-------|
+| Networks | `paiep_edge` (host-exposed), `paiep_backend` (`internal: true`) | Only edge services publish, on `127.0.0.1` only |
+| Volumes | `paiep_models`, `paiep_vectors`, `paiep_db`, `paiep_kb`, `paiep_memory` | Empty at M0; filled by M1/M2/M3/M5 |
+| Compose profiles | `core` (M0 health) → later: `llm`, `rag`, `memory`, `agents`, `ui`, `obs` | Enable per milestone/hardware profile without forking |
+| Host binding | `${BIND_HOST}` = `127.0.0.1` | Never `0.0.0.0` (ADR 0006) |
+
+### Reversibility
+
+- `make down` stops services and **keeps** named volumes (no data loss).
+- `make clean` previews the volumes that *would* be removed (dry run — safe).
+- `make nuke CONFIRM=yes` is the only destructive path (`down -v`); requires explicit confirmation.
+- All `docker/` additions are version-controlled and removable via `git restore` / reviewed `git clean -n`.
+

@@ -1,0 +1,9 @@
+# PAIEP M1 spike — pinned for reproducibility (offline after first build).
+# Deep RAG stack (versions of record) is finalised in M2-M4; these are the
+# minimal packages needed to validate Ollama -> LlamaIndex -> Qdrant.
+llama-index-core==0.12.10
+llama-index-llms-ollama==0.5.0
+llama-index-embeddings-ollama==0.5.0
+llama-index-vector-stores-qdrant==0.4.3
+llama-index-readers-file==0.4.1
+qdrant-client==1.12.1

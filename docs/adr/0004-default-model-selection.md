@@ -54,3 +54,20 @@ on CPU. Fallbacks (Mistral 7B, Granite 3 8B, Llama 3.2 3B) are documented.
 - Re-verify exact model tags and licenses in **Phase 06** before adoption.
 - Add speculative decoding (draft + target) to improve CPU throughput.
 - Re-evaluate larger/MoE models once a GPU/home server exists (ADR 0100 / Phase 12).
+
+## M1 Measured Results (2026-07-19)
+
+First measured numbers on the primary machine (i7-10610U, CPU-only, Docker Desktop/WSL2),
+via [`benchmarks/m1/`](../../benchmarks/m1/README.md). Ollama **0.6.2**, 200-token runs.
+
+| Model | Quant | Median tok/s | Median TTFT | Peak RAM |
+|-------|-------|--------------|-------------|----------|
+| `qwen2.5-coder:7b` | Q4_K_M | 3.58 | 0.388 s | 5081 MiB |
+
+**Findings (confirm the decision):**
+- Warm **TTFT is sub-second** — short, interactive prompts feel responsive.
+- Steady **~3.5 tok/s** generation confirms the premise that **interactive latency, not memory,
+  is the binding constraint** on this machine (peak RAM ~5 GiB ≪ the WSL-capped ~15.5 GiB).
+- The single `qwen2.5-coder:7b` default served both chat and coding cleanly and answered a
+  RAG query end-to-end in the M1 spike. Defaults **stand**; revisit throughput levers
+  (draft/speculative decoding, more WSL cores/RAM, or GPU on Profiles B–D).

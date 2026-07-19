@@ -3,7 +3,7 @@
 > An enterprise-grade, open-source, offline-first Personal AI Engineering Platform that runs primarily on a local laptop and evolves into a personal AI operating system.
 
 [![Status](https://img.shields.io/badge/status-architecture--phase-blue)]()
-[![Phases](https://img.shields.io/badge/phases-09%2F12%20drafted-blue)]()
+[![Phases](https://img.shields.io/badge/phases-10%2F12%20drafted-blue)]()
 [![License](https://img.shields.io/badge/license-TBD-lightgrey)]()
 [![Offline First](https://img.shields.io/badge/offline-first-success)]()
 [![Open Source](https://img.shields.io/badge/stack-open--source-brightgreen)]()
@@ -54,7 +54,7 @@ comparable in ambition to GitHub Copilot Agent while remaining fully open and ex
 | 07 | Agent Ecosystem | ✅ Drafted | [docs](docs/phases/07-agent-ecosystem.md) · [prompt](.github/prompts/07-agent-ecosystem.prompt.md) |
 | 08 | Knowledge & Memory Architecture | ✅ Drafted | [docs](docs/phases/08-knowledge-memory.md) · [prompt](.github/prompts/08-knowledge-memory.prompt.md) |
 | 09 | VS Code Integration | ✅ Drafted | [docs](docs/phases/09-vscode-integration.md) · [prompt](.github/prompts/09-vscode-integration.prompt.md) |
-| 10 | Implementation Roadmap | ⏳ Pending approval of 09 | [prompt](.github/prompts/10-implementation-roadmap.prompt.md) |
+| 10 | Implementation Roadmap | ✅ Drafted | [docs](docs/phases/10-implementation-roadmap.md) · [prompt](.github/prompts/10-implementation-roadmap.prompt.md) |
 | 11 | Testing & Benchmarking | ⏳ | — |
 | 12 | Future Roadmap | ⏳ | — |
 
@@ -71,12 +71,16 @@ comparable in ambition to GitHub Copilot Agent while remaining fully open and ex
 Personal-AI-Engineering-Platform/
 ├── .github/
 │   └── prompts/          # Executable, independent prompt files (01..12)
+│       └── implementation/   # Milestone prompts (M0..M10)
 ├── docs/
 │   ├── phases/           # Full documentation per phase
-│   └── adr/              # Architecture Decision Records
+│   ├── adr/              # Architecture Decision Records
+│   └── setup/            # Environment & tuning notes
 ├── architecture/         # Diagrams and architecture artifacts
-├── implementation/       # Milestone specs, validation, rollback plans
+├── implementation/       # Milestone specs, validation, rollback plans (M0..M10)
 ├── docker/               # Compose files and container definitions
+├── config/               # Model registry and platform configuration
+├── scripts/              # Bootstrap and model-pull helper scripts
 ├── memory/               # Long-term & session memory design/artifacts
 ├── agents/               # Agent definitions and collaboration specs
 ├── knowledge/            # Knowledge base, notes, book library index
@@ -135,12 +139,17 @@ Key decisions are recorded in [docs/adr/](docs/adr/):
 | [0008](docs/adr/0008-agent-orchestration.md) | Agent orchestration (supervisor/router) |
 | [0009](docs/adr/0009-vector-store-and-memory.md) | Vector store & memory architecture |
 | [0010](docs/adr/0010-vscode-integration-strategy.md) | VS Code integration strategy |
+| [0011](docs/adr/0011-delivery-milestones.md) | Delivery milestones (M0–M10) |
 | [0100](docs/adr/0100-gpu-and-reuse-strategy.md) | GPU acceleration & multi-workspace reuse |
 
 ---
 
 ## 8. Current Status
 
-**Phases 01–09 are drafted** (architecture complete through VS Code integration), each
-with documentation, Mermaid diagrams, and ADRs. **Phase 10 (Implementation Roadmap) is
-awaiting approval** before any implementation begins. No further phases start automatically.
+**Phases 01–10 are drafted** (architecture complete through the implementation roadmap),
+each with documentation, Mermaid diagrams, and ADRs. Phase 10 breaks delivery into small,
+reversible milestones (M0–M10) with per-milestone specs in
+[implementation/](implementation/) and prompts in
+[.github/prompts/implementation/](.github/prompts/implementation/README.md). **Milestone
+execution awaits approval** before any implementation begins. No further phases start
+automatically.
