@@ -1,0 +1,16 @@
+# Keep the build context small for the M3 ingest image (context = repo root).
+# The knowledge corpus is mounted at runtime, not baked into the image.
+.git
+.github
+docs
+benchmarks
+experiments
+architecture
+memory
+models
+knowledge
+implementation
+agents
+**/__pycache__
+**/*.pyc
+**/.DS_Store

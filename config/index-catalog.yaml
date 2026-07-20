@@ -1,0 +1,47 @@
+# PAIEP index catalog — single source of truth mapping each Qdrant collection
+# to its embedding model, vector dimension, and distance metric. [M2]
+# ---------------------------------------------------------------------------
+# WHY THIS EXISTS (ADR 0009): a vector collection is permanently bound to the
+# embedding model that produced its vectors. Mixing models/dims silently
+# corrupts retrieval. This catalog records `collection -> embed_model + dim`
+# so ingestion (M3), RAG (M4), and memory (M5) all agree, and so the
+# "re-embed risk" is explicit: changing a collection's model/dim REQUIRES a
+# re-index (drop + re-ingest), not an in-place edit.
+#
+# scripts/qdrant-init.sh reads this file and creates each collection + the
+# shared payload indexes idempotently. Dims MUST match the M1 embedding model
+# (config/models.yaml -> embed tier). nomic-embed-text = 768.
+# ---------------------------------------------------------------------------
+
+# --- Connection contract (shared by init script + LlamaIndex/memory clients)
+qdrant:
+  url: http://127.0.0.1:6333   # loopback REST endpoint (bootstrap/inspection)
+  distance: Cosine             # default metric (nomic-embed-text is cosine-normalised)
+
+# --- Payload-filter conventions (FR-012 / FR-021) --------------------------
+# Indexed on EVERY collection so scope/tag/source filtering is fast and
+# consistent across RAG + memory. See rag/README.md for value conventions.
+payload_indexes:
+  - { field: scope,  schema: keyword }  # "global" | "project:<name>"
+  - { field: source, schema: keyword }  # origin: file path / uri / doc id root
+  - { field: tags,   schema: keyword }  # free-form labels (multi-value keyword)
+
+# --- Collections -----------------------------------------------------------
+# One embedding model per collection (never mix). dim MUST equal the model's
+# output dimension. distance may override the qdrant.distance default.
+collections:
+  kb_docs:
+    embed_model: nomic-embed-text
+    dim: 768
+    distance: Cosine
+    description: Notes, docs, and book-library chunks for RAG (M3/M4).
+  repo_code:
+    embed_model: nomic-embed-text
+    dim: 768
+    distance: Cosine
+    description: Code-aware source chunks for repository RAG (M3/M4).
+  memory_semantic:
+    embed_model: nomic-embed-text
+    dim: 768
+    distance: Cosine
+    description: Long-term semantic memory vectors (M5).

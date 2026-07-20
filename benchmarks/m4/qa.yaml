@@ -1,0 +1,15 @@
+# PAIEP M4 retrieval eval — small labeled Q/A set over the sample corpus.
+# Each item maps a question to the source file that should be retrieved.
+# recall@k = fraction of questions whose expected source appears in top-k.
+# Measured, not invented (benchmarks/m4/eval.py).
+questions:
+  - q: "How does PAIEP keep working when the network is disabled?"
+    expected_source: knowledge/notes/offline-first.md
+  - q: "What embedding model and vector dimension does the RAG pipeline use?"
+    expected_source: knowledge/notes/rag-pipeline.md
+  - q: "What are PAIEP's core design principles?"
+    expected_source: knowledge/notes/paiep-vision.md
+  - q: "How does ingestion avoid creating duplicate vectors on re-run?"
+    expected_source: knowledge/notes/rag-pipeline.md
+  - q: "What is the reference hardware machine for PAIEP?"
+    expected_source: knowledge/notes/paiep-vision.md

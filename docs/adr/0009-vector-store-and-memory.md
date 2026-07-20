@@ -1,6 +1,6 @@
 # ADR 0009: Vector Store & Memory Architecture
 
-- **Status:** Accepted (schema/strategy defaults; tune in M1/M5)
+- **Status:** Accepted (schema/strategy defaults; tune in M1/M5) · **Vector store landed in M2 (2026-07-20)**
 - **Date:** 2026-07-19
 
 ## Context
@@ -63,3 +63,25 @@ and the **memory model** (session vs. long-term, consolidation, forgetting) — 
 - Pin exact Qdrant/Postgres schemas + Profile-A consolidation choice at implementation.
 - Add **scheduled re-index/consolidation** (Prefect) and a **cross-encoder re-ranker** on Profile B–D.
 - Add a **reconciliation job** to detect/repair dangling vectors vs. catalog.
+
+## Implementation Notes — M2 (2026-07-20)
+
+The **vector-store** half of this ADR is now implemented and validated on the primary machine (Qdrant
+only; Postgres/memory land in M5).
+
+- **Pinned version:** `qdrant/qdrant:v1.12.6` (Compose `vectordb` profile; backend-private, REST `6333` /
+  gRPC `6334` published on loopback only). Telemetry disabled; state in the `paiep_vectors` named volume.
+- **Collections created (all `nomic-embed-text`, dim `768`, `Cosine`):** `kb_docs`, `repo_code`,
+  `memory_semantic` — matching decision #1.
+- **Indexed payload fields (`keyword`):** `scope` (`global` | `project:<name>`), `source`, `tags`. These are
+  the filter-critical subset of the full payload schema (decision #2); the remaining fields
+  (`title`, `chunk_idx`, `content_hash`, `embed_model`/`embed_dim`, …) are stored on points as ingestion
+  lands in M3, and promoted to indexes only as query patterns require.
+- **Source of truth:** [`config/index-catalog.yaml`](../../config/index-catalog.yaml) records
+  `collection → embed_model + dim + distance`; [`scripts/qdrant-init.sh`](../../scripts/qdrant-init.sh)
+  creates collections + indexes idempotently from it (dependency-free, offline).
+- **Validated:** `/healthz` OK; insert + **filtered search** by `scope` returned only the matching point;
+  data **persisted** across `down`/`up`; reachable from the **internet-isolated** `backend` network
+  (egress `Network is unreachable`, Qdrant reachable). See
+  [`implementation/M2-vector-db.md`](../../implementation/M2-vector-db.md) → Execution Results.
+

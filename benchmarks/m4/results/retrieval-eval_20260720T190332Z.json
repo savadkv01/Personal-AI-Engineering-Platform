@@ -1,0 +1,71 @@
+﻿{
+  "summary": {
+    "n": 5,
+    "k": 4,
+    "recall_at_k": 1.0,
+    "collection": "kb_docs",
+    "embed_model": "nomic-embed-text"
+  },
+  "rows": [
+    {
+      "q": "How does PAIEP keep working when the network is disabled?",
+      "expected": "knowledge/notes/offline-first.md",
+      "hit": true,
+      "top_sources": [
+        "knowledge/notes/offline-first.md",
+        "knowledge/notes/paiep-vision.md",
+        "knowledge/notes/rag-pipeline.md",
+        "knowledge/library/index.md"
+      ],
+      "top_score": 0.6913
+    },
+    {
+      "q": "What embedding model and vector dimension does the RAG pipeline use?",
+      "expected": "knowledge/notes/rag-pipeline.md",
+      "hit": true,
+      "top_sources": [
+        "knowledge/notes/rag-pipeline.md",
+        "knowledge/library/index.md",
+        "knowledge/notes/paiep-vision.md",
+        "knowledge/README.md"
+      ],
+      "top_score": 0.7103
+    },
+    {
+      "q": "What are PAIEP's core design principles?",
+      "expected": "knowledge/notes/paiep-vision.md",
+      "hit": true,
+      "top_sources": [
+        "knowledge/notes/paiep-vision.md",
+        "knowledge/notes/offline-first.md",
+        "knowledge/notes/rag-pipeline.md",
+        "knowledge/README.md"
+      ],
+      "top_score": 0.7218
+    },
+    {
+      "q": "How does ingestion avoid creating duplicate vectors on re-run?",
+      "expected": "knowledge/notes/rag-pipeline.md",
+      "hit": true,
+      "top_sources": [
+        "knowledge/library/index.md",
+        "knowledge/notes/rag-pipeline.md",
+        "knowledge/README.md",
+        "knowledge/notes/offline-first.md"
+      ],
+      "top_score": 0.6355
+    },
+    {
+      "q": "What is the reference hardware machine for PAIEP?",
+      "expected": "knowledge/notes/paiep-vision.md",
+      "hit": true,
+      "top_sources": [
+        "knowledge/notes/paiep-vision.md",
+        "knowledge/notes/rag-pipeline.md",
+        "knowledge/notes/offline-first.md",
+        "knowledge/library/index.md"
+      ],
+      "top_score": 0.7335
+    }
+  ]
+}

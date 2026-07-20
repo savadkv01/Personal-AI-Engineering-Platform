@@ -1,0 +1,8 @@
+# PAIEP ingestion pipeline deps (M3) — pinned for reproducibility.
+# Offline after first build. Aligned with the M1 spike stack (ADR 0007).
+llama-index-core==0.12.10      # SentenceSplitter (sentence-aware chunking)
+qdrant-client==1.12.1          # vector upsert / filtered scroll+delete
+PyYAML==6.0.2                  # config + front-matter parsing
+pypdf==5.1.0                   # PDF loader (lazy-imported)
+EbookLib==0.18                 # EPUB loader (lazy-imported)
+beautifulsoup4==4.12.3         # EPUB HTML -> text (lazy-imported)

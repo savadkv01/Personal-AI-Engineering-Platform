@@ -1,0 +1,47 @@
+# PAIEP RAG query-path config (read path). [M4]
+# ---------------------------------------------------------------------------
+# Drives scripts/rag-query.py (rag/query/*): embed query -> retrieve top-k
+# (with scope/tags filters) -> optional re-rank -> assemble context (budgeted,
+# cited) -> grounded generation. The query embedding model is NOT set here — it
+# is inherited from config/embeddings.yaml so it always matches what M3 indexed
+# (ADR 0009 re-embed guard). Env overrides: OLLAMA_BASE_URL, QDRANT_URL,
+# CHAT_MODEL.
+# ---------------------------------------------------------------------------
+
+# --- Retrieval -------------------------------------------------------------
+retrieval:
+  collection: kb_docs        # default collection to query (routed like M3)
+  top_k: 4                   # chunks fed to the model (CPU-friendly)
+  score_threshold: 0.25      # drop weak cosine matches (0..1); guards grounding
+
+# --- Optional re-ranking (Phase 08) ----------------------------------------
+# Default OFF on Profile A (CPU). "lexical" is a zero-model overlap re-rank:
+# retrieve `candidate_k`, blend vector score with query-term overlap, keep top_k.
+# A cross-encoder re-ranker is a Profile B-D / future upgrade.
+rerank:
+  enabled: false
+  method: lexical            # lexical | (cross-encoder: future)
+  candidate_k: 8             # retrieve this many, then re-rank down to top_k
+  lexical_weight: 0.15       # weight of lexical overlap vs. vector score
+
+# --- Context assembly ------------------------------------------------------
+context:
+  max_context_chars: 6000    # total budget for retrieved text (~1.5k tokens)
+  per_chunk_char_cap: 1600   # truncate any single chunk to this
+  cite: true                 # number sources [1], [2], ... and list citations
+
+# --- Generation (Ollama chat; ADR 0004 default model) ----------------------
+generation:
+  provider: ollama
+  base_url: http://ollama:11434   # backend name; host: http://127.0.0.1:11435
+  model: qwen2.5-coder:7b
+  temperature: 0.1
+  num_ctx: 8192              # model context window budget
+  max_tokens: 512            # answer cap
+  request_timeout: 600
+
+# --- Guardrails ------------------------------------------------------------
+guardrails:
+  # When nothing clears score_threshold, return this WITHOUT calling the model
+  # (so no source is ever hallucinated on empty retrieval).
+  no_answer_message: "I don't have information about that in the local knowledge base."

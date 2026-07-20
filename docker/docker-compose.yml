@@ -76,7 +76,7 @@ services:
   ollama:
     image: ${OLLAMA_IMAGE:-ollama/ollama:0.6.2}
     container_name: ${COMPOSE_PROJECT_NAME:-paiep}_ollama
-    profiles: ["inference", "gateway", "spike"]
+    profiles: ["inference", "gateway", "spike", "ingest", "rag"]
     restart: unless-stopped
     networks: [edge, backend]
     ports:
@@ -126,20 +126,37 @@ services:
       start_period: 5s
 
   # -------------------------------------------------------------------------
-  # qdrant — vector DB for the M1 integration spike only (thin). [M1 spike]
-  # Deepened in M2 (collections, payload filters, snapshots). Backend-private;
-  # 6333 published on loopback purely to inspect the spike's collection.
+  # qdrant — shared vector store for RAG (M3/M4) and semantic memory (M5). [M2]
+  # Profiles: vectordb (standalone, the M2 owner) | spike (M1 integration test).
+  # Backend-private for consumers; 6333 (REST) + 6334 (gRPC) published on
+  # loopback for bootstrap/inspection. Collections + payload indexes are
+  # created by scripts/qdrant-init.sh from config/index-catalog.yaml.
+  # State persists in the paiep_vectors named volume (re-creatable from
+  # ingestion, so reversible). See ADR 0009 for schema/version pins.
   # -------------------------------------------------------------------------
   qdrant:
     image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.12.6}
     container_name: ${COMPOSE_PROJECT_NAME:-paiep}_qdrant
-    profiles: ["spike"]
+    profiles: ["vectordb", "spike", "ingest", "rag"]
     restart: unless-stopped
     networks: [edge, backend]
     ports:
       - "${BIND_HOST:-127.0.0.1}:${QDRANT_HOST_PORT:-6333}:6333"
+      - "${BIND_HOST:-127.0.0.1}:${QDRANT_GRPC_HOST_PORT:-6334}:6334"
+    environment:
+      # Keep logs quiet and telemetry off (offline-first, NFR).
+      - QDRANT__TELEMETRY_DISABLED=true
+      - QDRANT__LOG_LEVEL=${QDRANT_LOG_LEVEL:-INFO}
     volumes:
       - paiep_vectors:/qdrant/storage
+    healthcheck:
+      # The qdrant image ships no curl/wget; probe the TCP REST port from the
+      # bundled qdrant binary's runtime instead via /proc (shell-free check).
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/6333' 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
   # -------------------------------------------------------------------------
   # spike — one-shot M1 integration test: Ollama -> LlamaIndex -> Qdrant. [M1]
@@ -165,3 +182,69 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - CHAT_MODEL=${CHAT_MODEL:-qwen2.5-coder:7b}
       - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
+
+  # -------------------------------------------------------------------------
+  # ingest — one-shot ingestion runner: load -> chunk -> embed -> upsert. [M3]
+  # Not long-running. Bring up ollama + qdrant, then ingest the local corpus:
+  #   docker compose --profile inference up -d ollama
+  #   docker compose --profile vectordb  up -d qdrant
+  #   docker compose --profile ingest run --rm ingest knowledge --scope global
+  # Backend-private; reaches ollama/qdrant by name. Corpus + config mounted
+  # read-only so edits need no rebuild. Idempotent (checksum-based re-ingest).
+  # -------------------------------------------------------------------------
+  ingest:
+    build:
+      context: ..
+      dockerfile: rag/ingest/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-paiep}_ingest
+    container_name: ${COMPOSE_PROJECT_NAME:-paiep}_ingest
+    profiles: ["ingest"]
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    networks: [backend]
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - QDRANT_URL=http://qdrant:6333
+      - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
+      - INGEST_PATHS=${INGEST_PATHS:-knowledge}
+      - INGEST_SOURCE_ROOT=/app
+    volumes:
+      - ../knowledge:/app/knowledge:ro
+      - ../config:/app/config:ro
+
+  # -------------------------------------------------------------------------
+  # rag — grounded query CLI: retrieve -> (re-rank) -> assemble -> answer. [M4]
+  # Reuses the M3 ingest image (same build) with the query entrypoint. Run:
+  #   docker compose --profile rag run --rm rag "What is PAIEP's default model?"
+  # Eval harness (recall@k) via entrypoint override:
+  #   docker compose --profile rag run --rm --entrypoint python rag \
+  #     /app/benchmarks/m4/eval.py
+  # Backend-private; reaches ollama/qdrant by name (offline by construction).
+  # -------------------------------------------------------------------------
+  rag:
+    build:
+      context: ..
+      dockerfile: rag/ingest/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-paiep}_ingest
+    container_name: ${COMPOSE_PROJECT_NAME:-paiep}_rag
+    profiles: ["rag"]
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    networks: [backend]
+    entrypoint: ["python", "/app/scripts/rag-query.py"]
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - QDRANT_URL=http://qdrant:6333
+      - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
+      - CHAT_MODEL=${CHAT_MODEL:-qwen2.5-coder:7b}
+    volumes:
+      - ../config:/app/config:ro
+      - ../benchmarks:/app/benchmarks:ro

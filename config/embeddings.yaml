@@ -1,0 +1,46 @@
+# PAIEP embedding + ingestion config (write path only). [M3]
+# ---------------------------------------------------------------------------
+# Drives scripts/ingest.py (rag/ingest/*). The embedding model + dim MUST stay
+# in lockstep with config/index-catalog.yaml (M2) — changing the model is a
+# re-embed (drop + re-ingest), never an in-place edit (ADR 0009).
+# Env overrides at runtime: OLLAMA_BASE_URL, QDRANT_URL, EMBED_MODEL.
+# ---------------------------------------------------------------------------
+
+# --- Embedding service (Ollama runtime from M1) ----------------------------
+service:
+  provider: ollama
+  base_url: http://ollama:11434   # backend-network name; host: http://127.0.0.1:11435
+  endpoint: /api/embed            # Ollama batch embeddings endpoint
+  model: nomic-embed-text         # MUST match index-catalog collections
+  dim: 768                        # MUST match collection vector size (M2)
+  batch_size: 16                  # texts per embed request (CPU-friendly)
+  request_timeout: 120            # seconds per embed call
+
+# --- Chunking (Phase 08 §3) ------------------------------------------------
+# Sizes are token targets (SentenceSplitter). Code gets larger windows.
+chunking:
+  note: { chunk_size: 512, chunk_overlap: 64 }
+  book: { chunk_size: 1024, chunk_overlap: 128 }
+  code: { chunk_size: 768, chunk_overlap: 96 }
+
+# --- Routing: file extension -> doc_type -> target collection --------------
+# doc_type is stored in the payload; collection is the Qdrant target.
+routing:
+  - exts: [".md", ".markdown", ".txt", ".rst"]
+    doc_type: note
+    collection: kb_docs
+  - exts: [".pdf"]
+    doc_type: book
+    collection: kb_docs
+  - exts: [".epub"]
+    doc_type: book
+    collection: kb_docs
+  - exts: [".py", ".js", ".ts", ".tsx", ".go", ".rs", ".java", ".c", ".cpp",
+           ".h", ".hpp", ".sh", ".bash", ".sql", ".yaml", ".yml", ".toml"]
+    doc_type: code
+    collection: repo_code
+
+# Files/dirs skipped during directory walks.
+exclude:
+  dirs: [".git", ".github", "node_modules", "__pycache__", ".venv", "venv"]
+  names: [".gitkeep", ".DS_Store"]

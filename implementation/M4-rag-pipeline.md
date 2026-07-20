@@ -3,9 +3,10 @@
 > **Milestone:** M4 · **Layer:** Data & Retrieval · **Anchor:** O4 (FR-022–025) ·
 > **Prompt:** [`.github/prompts/implementation/M4-rag-pipeline.prompt.md`](../.github/prompts/implementation/M4-rag-pipeline.prompt.md) ·
 > **Roadmap:** [`docs/phases/10-implementation-roadmap.md`](../docs/phases/10-implementation-roadmap.md) ·
-> **Status:** Planned (not started) · **Author role:** AI Engineer
+> **Status:** Implemented (validated 2026-07-20) · **Author role:** AI Engineer
 
-> ⚠️ **Plan-only.** Do not implement until the roadmap is approved and M4 is explicitly requested.
+> ✅ **Implemented.** Query path built and validated on the reference machine — see
+> [Execution Results](#execution-results-2026-07-20).
 
 ---
 
@@ -31,22 +32,49 @@ citations** ([Phase 05 §7](../docs/phases/05-enterprise-architecture.md), FR-02
 
 ## Deliverables
 
-| Artifact | Path (planned) |
-|----------|----------------|
-| RAG query module | `rag/pipeline/`, `rag/service/` |
-| Retrieval/re-rank/context config | `config/rag.yaml` |
-| Query entrypoint (CLI/API) | `rag/service/` (behind gateway) |
-| Retrieval eval + results | `benchmarks/m4/` |
-| Setup doc | `docs/setup/04-rag-pipeline.md` |
+| Artifact | Path (built) |
+|----------|--------------|
+| RAG query module | [`rag/query/`](../rag/query/) (retriever/rerank/assembler/generator/engine) |
+| Retrieval/re-rank/context config | [`config/rag.yaml`](../config/rag.yaml) |
+| Query entrypoint (CLI) | [`scripts/rag-query.py`](../scripts/rag-query.py) + Compose profile `rag` |
+| Retrieval eval + results | [`benchmarks/m4/`](../benchmarks/m4/) (`eval.py`, `qa.yaml`, `results/`) |
+| Setup doc | [`docs/setup/04-rag-pipeline.md`](../docs/setup/04-rag-pipeline.md) |
 
 ## Validation Checklist
 
-- [ ] A known question returns a correct, **grounded** answer citing the right source (FR-022).
-- [ ] Retrieval respects `scope`/`tags` metadata filters.
-- [ ] Context stays within the model window; no truncation errors.
-- [ ] Graceful behavior when nothing relevant is found (no hallucinated citation).
-- [ ] recall@k recorded on a small labeled set.
-- [ ] **Offline smoke:** full query path with network disabled.
+- [x] A known question returns a correct, **grounded** answer citing the right source (FR-022).
+- [x] Retrieval respects `scope`/`tags` metadata filters.
+- [x] Context stays within the model window; no truncation errors.
+- [x] Graceful behavior when nothing relevant is found (no hallucinated citation).
+- [x] recall@k recorded on a small labeled set.
+- [x] **Offline smoke:** full query path with network disabled.
+
+## Execution Results (2026-07-20)
+
+Run on the reference machine (HP EliteBook 840 G7, i7-10610U, 32 GB, CPU-only; Docker Desktop 29.6.1 /
+WSL2). Query path reuses the M3 `ingest` image with the `rag` Compose profile; all traffic stays on the
+internal `backend` network.
+
+| Check | Command (from `docker/`) | Result |
+|-------|--------------------------|--------|
+| Grounded answer (FR-022) | `compose --profile rag run --rm rag "How does PAIEP keep working when the network is disabled?"` | Correct answer citing **[1] `offline-first.md`** (score 0.691); `grounded=True retrieved=4` |
+| Positive scope filter | retrieval-only, `scope=global` | 4 in-scope chunks returned (paiep-vision 0.564, README 0.532, offline-first 0.444, rag-pipeline 0.442) |
+| Negative scope filter | retrieval-only, `scope=project:none` | `[]` — no chunks (filter applied) |
+| No-answer guardrail | `... --scope project:does-not-exist` | `grounded=False retrieved=0`, fixed no-answer message, **no citations, no model call** (instant) |
+| Context budget | top-k=4 assembled | within `max_context_chars` (6000); no truncation error |
+| recall@k | `--entrypoint python rag /app/benchmarks/m4/eval.py --json` | **recall@4 = 1.0 (5/5)**; saved to `benchmarks/m4/results/` |
+| Offline smoke | `docker run --rm --network paiep_backend ... /dev/tcp/1.1.1.1/443` | `NET_BLOCKED` — "Network is unreachable" (no egress) |
+
+**Deviations / notes**
+- **Entrypoint, not gateway API.** M4 ships a **CLI** query entrypoint (`scripts/rag-query.py`, profile
+  `rag`) rather than an HTTP service behind the gateway; the OpenAI-compatible seam and a network service
+  are deferred to M7/M8 (kept the surface minimal and offline-testable per phase scope).
+- **Image reuse.** The `rag` service reuses the M3 `paiep_ingest` image (same `Dockerfile`) with an
+  overridden entrypoint — no second image to build/maintain.
+- **Re-rank off by default.** Lexical-overlap re-ranker implemented and available via `--rerank`; disabled
+  by default on CPU (Profile A/A+). Cross-encoder deferred to Phase 11.
+- **Latency.** Grounded generation ≈ 1–3 min (`qwen2.5-coder:7b` ≈ 3.5 tok/s, CPU-only); retrieval and the
+  no-answer path are sub-second.
 
 ## Rollback Strategy
 
