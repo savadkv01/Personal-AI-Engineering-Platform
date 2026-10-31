@@ -14,7 +14,7 @@ Create a **multi-year roadmap** for expanding PAIEP without redesigning the plat
 
 ## Context (read first)
 - Repo-wide rules: [`.github/copilot-instructions.md`](../copilot-instructions.md)
-- Prior phases: [`01`](../../docs/phases/01-project-vision.md) … [`11`](../../docs/phases/11-testing-benchmarking.md)
+- Prior phases: [`01`](../../docs/phases/01-project-vision.md) … `11` (`docs/phases/11-testing-benchmarking.md`, produced by Phase 11)
 
 ## Themes to Cover
 Fine-tuning · Vision models · Robotics · ROS2 · Earth Observation · Satellite Analytics ·

@@ -30,11 +30,11 @@ Modules live in [`rag/query/`](../../rag/query/):
 | Module | Responsibility |
 |--------|----------------|
 | `config.py` | Load [`config/rag.yaml`](../../config/rag.yaml) + inherit embed/qdrant settings from M3 |
-| `retriever.py` | Embed query, Qdrant `search` with `scope`/`tags` filters + `score_threshold` |
+| `retriever.py` | Embed query, Qdrant `query_points` with `scope`/`tags` filters + `score_threshold` |
 | `rerank.py` | Optional lexical-overlap re-rank (dependency-free) |
 | `assembler.py` | Numbered `[n]` context blocks within char budget; emit citations |
 | `generator.py` | Ollama `/api/chat` with the grounded system prompt |
-| `engine.py` | Orchestrate the stages; enforce the empty-retrieval guardrail |
+| `engine.py` | Orchestrate the stages; enforce the empty-retrieval, refusal and cited-only guardrails |
 
 Entry point: [`scripts/rag-query.py`](../../scripts/rag-query.py) (Compose profile `rag`, reusing the M3
 `ingest` image).
@@ -55,7 +55,7 @@ Entry point: [`scripts/rag-query.py`](../../scripts/rag-query.py) (Compose profi
 | `generation` | `model` | `qwen2.5-coder:7b` | Local chat model (M1) |
 | | `temperature` | `0.1` | Low → faithful, less drift |
 | | `num_ctx` | `8192` | Context window |
-| `guardrails` | `no_answer_message` | fixed phrase | Returned when context is insufficient |
+| `guardrails` | `no_answer_message` | fixed phrase | Injected into the system prompt; returned when context is insufficient |
 
 Env overrides: `OLLAMA_BASE_URL`, `QDRANT_URL`, `EMBED_MODEL`, `CHAT_MODEL`, `RAG_CONFIG`.
 
@@ -67,6 +67,12 @@ Env overrides: `OLLAMA_BASE_URL`, `QDRANT_URL`, `EMBED_MODEL`, `CHAT_MODEL`, `RA
   (OWASP LLM01).
 - **Empty retrieval short-circuits** to the no-answer message **without calling the model**, so a
   low-relevance query can never produce a hallucinated citation.
+- **Model refusal is ungrounded:** if the model answers with the no-answer phrase (and no `[n]` markers), the
+  result is `grounded=False` with **no citations**.
+- **Cited-only citations:** only the `[n]` sources the answer actually references are returned; if the model
+  emits no valid markers, all assembled sources are listed.
+
+The guardrails are covered by offline unit tests in [`tests/test_query.py`](../../tests/test_query.py).
 
 ## 4. Run
 
@@ -84,7 +90,13 @@ docker compose --profile rag run --rm rag "What are PAIEP's core design principl
 
 # Force re-rank on / show citation sources
 docker compose --profile rag run --rm rag "..." --rerank --show-context
+
+# Same via the Makefile (from repo root)
+make -C docker ask Q="How does PAIEP stay usable offline?" ARGS="--json"
+make -C docker eval
 ```
+
+> After changing code in `rag/` or `scripts/`, rebuild the image: `make -C docker build`.
 
 > **Latency:** on the reference machine (CPU-only, `qwen2.5-coder:7b` ≈ 3.5 tok/s) a full grounded answer
 > takes ~1–3 min; retrieval alone is sub-second. The no-answer path is instant (no generation).
@@ -123,3 +135,11 @@ See [`benchmarks/m4/README.md`](../../benchmarks/m4/README.md) for measured resu
 
 `rag/query/` and `config/rag.yaml` are additive; **M1–M3 remain functional**. No schema/data changes —
 `git restore rag/query config/rag.yaml scripts/rag-query.py` and remove the `rag` Compose service.
+
+## 9. Memory & sessions (M5)
+
+Since M5 the query path can also use **long-term memory** and **sessions** — see
+[05 — Memory Service](05-memory.md). Recalled memories are prepended to the context as cited sources
+(`memory:<type>/<id>`), capped by `memory.max_context_chars`; a question is answered if **either**
+documents or memories clear their thresholds. Flags: `--new-session`, `--session <id>`, `--no-memory`.
+The `rag` profile therefore also starts `postgres`; memory failures are fail-soft.

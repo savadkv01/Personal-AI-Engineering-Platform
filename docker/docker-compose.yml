@@ -76,7 +76,7 @@ services:
   ollama:
     image: ${OLLAMA_IMAGE:-ollama/ollama:0.6.2}
     container_name: ${COMPOSE_PROJECT_NAME:-paiep}_ollama
-    profiles: ["inference", "gateway", "spike", "ingest", "rag"]
+    profiles: ["inference", "gateway", "spike", "ingest", "rag", "memory"]
     restart: unless-stopped
     networks: [edge, backend]
     ports:
@@ -137,7 +137,7 @@ services:
   qdrant:
     image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.12.6}
     container_name: ${COMPOSE_PROJECT_NAME:-paiep}_qdrant
-    profiles: ["vectordb", "spike", "ingest", "rag"]
+    profiles: ["vectordb", "spike", "ingest", "rag", "memory"]
     restart: unless-stopped
     networks: [edge, backend]
     ports:
@@ -217,7 +217,7 @@ services:
       - ../config:/app/config:ro
 
   # -------------------------------------------------------------------------
-  # rag — grounded query CLI: retrieve -> (re-rank) -> assemble -> answer. [M4]
+  # rag — grounded query CLI: recall memory + retrieve -> (re-rank) -> answer. [M4/M5]
   # Reuses the M3 ingest image (same build) with the query entrypoint. Run:
   #   docker compose --profile rag run --rm rag "What is PAIEP's default model?"
   # Eval harness (recall@k) via entrypoint override:
@@ -238,6 +238,8 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     networks: [backend]
     entrypoint: ["python", "/app/scripts/rag-query.py"]
     environment:
@@ -245,6 +247,77 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
       - CHAT_MODEL=${CHAT_MODEL:-qwen2.5-coder:7b}
+      # M5 long-term memory + sessions (fail-soft: rag works without it).
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-paiep-local-dev-password}
+      - MEMORY_CONFIG=${MEMORY_CONFIG:-/app/config/memory.yaml}
     volumes:
       - ../config:/app/config:ro
       - ../benchmarks:/app/benchmarks:ro
+      - paiep_memory:/data
+
+  # -------------------------------------------------------------------------
+  # postgres — canonical, user-editable memory + session state (ADR 0009). [M5]
+  # Profiles: memory (owner) | rag (memory-in-context). Backend-private for
+  # consumers; published on loopback only for inspection/host CLI. Schema is
+  # created by versioned migrations (memory/migrations/postgres) on first use.
+  # Data lives in the paiep_db named volume (back up before destructive ops).
+  # -------------------------------------------------------------------------
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16.14-alpine}
+    container_name: ${COMPOSE_PROJECT_NAME:-paiep}_postgres
+    profiles: ["memory", "rag"]
+    restart: unless-stopped
+    networks: [edge, backend]
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${POSTGRES_HOST_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_DB=paiep
+      - POSTGRES_USER=paiep
+      # Local-only placeholder default; set a real value in docker/.env.
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-paiep-local-dev-password}
+    volumes:
+      - paiep_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paiep -d paiep -q || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # -------------------------------------------------------------------------
+  # memory — memory service CLI: CRUD, recall, sessions, retention. [M5]
+  # One-shot (like ingest/rag); reuses the same image. Run:
+  #   docker compose --profile memory run --rm memory add "Prefer pytest" --type preference
+  #   docker compose --profile memory run --rm memory recall "test framework?"
+  #   docker compose --profile memory run --rm memory check
+  # Profile A (no Postgres/Qdrant): MEMORY_CONFIG=/app/config/memory.profile-a.yaml
+  # with `run --no-deps` (needs only ollama for embeddings); SQLite in paiep_memory.
+  # -------------------------------------------------------------------------
+  memory:
+    build:
+      context: ..
+      dockerfile: rag/ingest/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-paiep}_ingest
+    container_name: ${COMPOSE_PROJECT_NAME:-paiep}_memory
+    profiles: ["memory"]
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+    entrypoint: ["python", "/app/scripts/memory-cli.py"]
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - QDRANT_URL=http://qdrant:6333
+      - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
+      - CHAT_MODEL=${CHAT_MODEL:-qwen2.5-coder:7b}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-paiep-local-dev-password}
+      - MEMORY_CONFIG=${MEMORY_CONFIG:-/app/config/memory.yaml}
+    volumes:
+      - ../config:/app/config:ro
+      - ../benchmarks:/app/benchmarks
+      - paiep_memory:/data

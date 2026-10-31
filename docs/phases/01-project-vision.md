@@ -286,7 +286,8 @@ PAIEP's vision is realized when:
 ## 14. Future Improvements (Seeds for Later Phases)
 
 - Formalize persona definitions and collaboration protocols (**Phase 07**).
-- Decide memory scope: global vs per-project (**Phase 08 / M5**).
+- Decide memory scope: global vs per-project (**Phase 08 / M5**) — decided in M5: `global` + `project:<name>`,
+  project recall includes global ([ADR 0009](../adr/0009-vector-store-and-memory.md)).
 - Validate concrete model tiers and latency on this machine (**Phase 04**).
 - Design the home-server topology and GPU path (**Phase 12**, ADR 0100).
 - Template repo / cookiecutter for multi-workspace reuse (**milestone M7**).

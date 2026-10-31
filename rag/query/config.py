@@ -5,12 +5,15 @@ embedding model always matches what was indexed.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
-from rag.ingest.config import ServiceConfig, load_config as load_ingest_config
+from rag.ingest.config import ServiceConfig
+from rag.ingest.config import load_config as load_ingest_config
+
+DEFAULT_NO_ANSWER = "I don't have information about that in the local knowledge base."
 
 
 @dataclass
@@ -32,7 +35,6 @@ class RerankConfig:
 class ContextConfig:
     max_context_chars: int
     per_chunk_char_cap: int
-    cite: bool
 
 
 @dataclass
@@ -47,6 +49,15 @@ class GenerationConfig:
 
 
 @dataclass
+class MemoryContextConfig:
+    enabled: bool = False
+    top_k: int = 3
+    score_threshold: float = 0.5
+    max_context_chars: int = 1200
+    reinforce_on_use: bool = True
+
+
+@dataclass
 class QueryConfig:
     retrieval: RetrievalConfig
     rerank: RerankConfig
@@ -55,6 +66,7 @@ class QueryConfig:
     no_answer_message: str
     embed: ServiceConfig
     qdrant_url: str
+    memory: MemoryContextConfig = field(default_factory=MemoryContextConfig)
 
 
 def _repo_root() -> Path:
@@ -73,6 +85,7 @@ def load_query_config(rag_path: str | None = None) -> QueryConfig:
     rr = raw.get("rerank", {})
     c = raw.get("context", {})
     g = raw.get("generation", {})
+    m = raw.get("memory") or {}
 
     generation = GenerationConfig(
         provider=g.get("provider", "ollama"),
@@ -99,11 +112,17 @@ def load_query_config(rag_path: str | None = None) -> QueryConfig:
         context=ContextConfig(
             max_context_chars=int(c.get("max_context_chars", 6000)),
             per_chunk_char_cap=int(c.get("per_chunk_char_cap", 1600)),
-            cite=bool(c.get("cite", True)),
         ),
         generation=generation,
-        no_answer_message=raw.get("guardrails", {}).get(
-            "no_answer_message", "I don't have that in the local knowledge base."),
+        no_answer_message=(raw.get("guardrails") or {}).get(
+            "no_answer_message", DEFAULT_NO_ANSWER),
         embed=ingest.service,
         qdrant_url=ingest.qdrant_url,
+        memory=MemoryContextConfig(
+            enabled=bool(m.get("enabled", False)),
+            top_k=int(m.get("top_k", 3)),
+            score_threshold=float(m.get("score_threshold", 0.5)),
+            max_context_chars=int(m.get("max_context_chars", 1200)),
+            reinforce_on_use=bool(m.get("reinforce_on_use", True)),
+        ),
     )

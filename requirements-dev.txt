@@ -1,0 +1,4 @@
+# Dev/CI tooling: runtime deps + test/lint. Install: pip install -r requirements-dev.txt
+-r rag/ingest/requirements.txt
+pytest==9.1.1
+ruff==0.15.20

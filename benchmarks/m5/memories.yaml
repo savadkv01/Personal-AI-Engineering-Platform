@@ -1,0 +1,29 @@
+# Labeled set for the M5 memory benchmark (benchmarks/m5/bench.py).
+# Each query must recall the memory with the matching `key` within top-k.
+# `negatives` are off-topic queries that should recall nothing (threshold check).
+memories:
+  - { key: pytest,   type: preference, content: "I prefer pytest over unittest for Python tests" }
+  - { key: ruff,     type: preference, content: "Format and lint Python code with ruff" }
+  - { key: qdrant,   type: decision,   content: "Semantic memory vectors live in the Qdrant collection memory_semantic" }
+  - { key: postgres, type: decision,   content: "Postgres is the source of truth for memory records and sessions" }
+  - { key: gateway,  type: fact,       content: "The OpenAI-compatible gateway is published on 127.0.0.1:8081" }
+  - { key: model,    type: decision,   content: "The default local chat model is qwen2.5-coder 7B quantized Q4_K_M" }
+  - { key: commits,  type: preference, content: "Run make test before every git commit" }
+  - { key: offline,  type: fact,       content: "All services run offline on the internal backend Docker network" }
+  - { key: hardware, type: fact,       content: "The reference laptop is an HP EliteBook with 32 GB RAM and no GPU" }
+  - { key: embed,    type: decision,   content: "Embeddings use nomic-embed-text with 768 dimensions" }
+queries:
+  - { q: "which unit test framework do I like?",               expect: pytest }
+  - { q: "what tool formats my python code?",                  expect: ruff }
+  - { q: "where are memory embeddings stored?",                expect: qdrant }
+  - { q: "what is the canonical store for memories?",          expect: postgres }
+  - { q: "what port is the gateway on?",                       expect: gateway }
+  - { q: "which LLM runs by default?",                         expect: model }
+  - { q: "what should I do before committing?",                expect: commits }
+  - { q: "does the platform need internet access?",            expect: offline }
+  - { q: "how much memory does my machine have, is there a GPU?", expect: hardware }
+  - { q: "what embedding model and dimension are used?",       expect: embed }
+negatives:
+  - "what is the capital of France?"
+  - "recommend a good pizza topping"
+  - "who won the football world cup in 1998?"

@@ -28,7 +28,7 @@ rerank:
 context:
   max_context_chars: 6000    # total budget for retrieved text (~1.5k tokens)
   per_chunk_char_cap: 1600   # truncate any single chunk to this
-  cite: true                 # number sources [1], [2], ... and list citations
+  # Sources are always numbered [1], [2], ...; only those the answer cites are returned.
 
 # --- Generation (Ollama chat; ADR 0004 default model) ----------------------
 generation:
@@ -45,3 +45,15 @@ guardrails:
   # When nothing clears score_threshold, return this WITHOUT calling the model
   # (so no source is ever hallucinated on empty retrieval).
   no_answer_message: "I don't have information about that in the local knowledge base."
+
+# --- Long-term memory in context (M5) ---------------------------------------
+# Recalled memories (config/memory.yaml backend) are prepended to the context as
+# numbered sources ("memory:<type>/<id>") and cited like documents. Fail-soft: if
+# the memory backend is unreachable, answers continue from documents only.
+# Disable here (or `rag-query --no-memory`) to roll back to the pure M4 path.
+memory:
+  enabled: true
+  top_k: 3                   # memories added to the context
+  score_threshold: 0.5       # cosine; below this a memory is not considered relevant
+  max_context_chars: 1200    # memory share of max_context_chars
+  reinforce_on_use: true     # cited memories gain confidence (async)

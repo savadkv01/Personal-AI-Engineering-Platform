@@ -1,0 +1,85 @@
+{
+  "summary": {
+    "timestamp": "2026-10-31T11:09:45.158922+00:00",
+    "backend": "postgres",
+    "vectors": "qdrant",
+    "embed_model": "nomic-embed-text",
+    "memories": 10,
+    "queries": 10,
+    "k": 3,
+    "write_ms_p50": 4.0,
+    "write_ms_p95": 13.1,
+    "write_plus_async_sync_total_s": 1.47,
+    "hit_at_k": 1.0,
+    "negatives": 3,
+    "negative_false_positives": 0,
+    "recall_threads": 4,
+    "recall_requests": 30,
+    "recall_ms_p50": 357.0,
+    "recall_ms_p95": 1544.4,
+    "recall_throughput_rps": 6.6,
+    "consistent_after": true
+  },
+  "rows": [
+    {
+      "q": "which unit test framework do I like?",
+      "expect": "pytest",
+      "hit": true,
+      "top_score": 0.668
+    },
+    {
+      "q": "what tool formats my python code?",
+      "expect": "ruff",
+      "hit": true,
+      "top_score": 0.664
+    },
+    {
+      "q": "where are memory embeddings stored?",
+      "expect": "qdrant",
+      "hit": true,
+      "top_score": 0.656
+    },
+    {
+      "q": "what is the canonical store for memories?",
+      "expect": "postgres",
+      "hit": true,
+      "top_score": 0.654
+    },
+    {
+      "q": "what port is the gateway on?",
+      "expect": "gateway",
+      "hit": true,
+      "top_score": 0.683
+    },
+    {
+      "q": "which LLM runs by default?",
+      "expect": "model",
+      "hit": true,
+      "top_score": 0.546
+    },
+    {
+      "q": "what should I do before committing?",
+      "expect": "commits",
+      "hit": true,
+      "top_score": 0.588
+    },
+    {
+      "q": "does the platform need internet access?",
+      "expect": "offline",
+      "hit": true,
+      "top_score": 0.507
+    },
+    {
+      "q": "how much memory does my machine have, is there a GPU?",
+      "expect": "hardware",
+      "hit": true,
+      "top_score": 0.643
+    },
+    {
+      "q": "what embedding model and dimension are used?",
+      "expect": "embed",
+      "hit": true,
+      "top_score": 0.732
+    }
+  ]
+}

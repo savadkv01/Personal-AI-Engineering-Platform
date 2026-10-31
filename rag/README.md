@@ -68,7 +68,9 @@ The ingestion pipeline (`load → chunk → embed → upsert`) lives in [`rag/in
 - **Chunking:** LlamaIndex `SentenceSplitter`; per-type windows (note 512/64, book 1024/128, code 768/96).
 - **Embedding:** Ollama `nomic-embed-text` (dim 768) via `/api/embed`; dim checked against the M2 collection.
 - **Idempotency:** point ID = `uuid5(source, chunk_index)` + per-file SHA-256 `checksum`; unchanged files are
-  skipped, changed files are deleted-by-`source` then re-upserted (no dupes/orphans). `--force` re-embeds.
+  skipped, changed files are deleted-by-`source` then re-upserted (no dupes/orphans). `--force` re-embeds;
+  `--prune` removes chunks of files deleted under the ingested paths.
+- **Scope:** front-matter `scope:` overrides the run-level `--scope` default.
 - **Offline by construction:** the ingest container attaches only to the internal `backend` network.
 
 ```bash
@@ -82,8 +84,8 @@ lives in [`rag/query/`](query/), is driven by [`config/rag.yaml`](../config/rag.
 [`scripts/rag-query.py`](../scripts/rag-query.py) (container profile `rag`, same image as `ingest`). Full
 guide: [`docs/setup/04-rag-pipeline.md`](../docs/setup/04-rag-pipeline.md).
 
-- **Retrieve:** query embedded with the same `nomic-embed-text` model; Qdrant `search` with `score_threshold`
-  and optional `scope`/`tags` payload filters (`scope` = exact match, `tags` = match-any).
+- **Retrieve:** query embedded with the same `nomic-embed-text` model; Qdrant `query_points` with
+  `score_threshold` and optional `scope`/`tags` payload filters (`scope` = exact match, `tags` = match-any).
 - **Re-rank (optional, off by default):** dependency-free **lexical-overlap** blend
   (`(1−w)·vector + w·lexical`) over a wider `candidate_k` — a cheap CPU-friendly precision nudge; a
   cross-encoder is deferred (Profile B+/Phase 11).
@@ -92,7 +94,9 @@ guide: [`docs/setup/04-rag-pipeline.md`](../docs/setup/04-rag-pipeline.md).
 - **Generate:** Ollama chat (`qwen2.5-coder:7b`, low temperature) with a strict system prompt — answer
   **only** from context, cite `[n]`, and return a fixed **no-answer** phrase when context is insufficient.
 - **Guardrails:** empty retrieval short-circuits to the no-answer message **without** calling the model
-  (no hallucinated citations); retrieved text is delimited as **data, not instructions** (OWASP LLM01).
+  (no hallucinated citations); a model refusal is returned as ungrounded with no citations; only sources
+  the answer cites as `[n]` are returned; retrieved text is delimited as **data, not instructions**
+  (OWASP LLM01). Unit-tested offline in [`tests/`](../tests/).
 - **Offline by construction:** the `rag` container attaches only to the internal `backend` network.
 
 ```bash
@@ -103,6 +107,14 @@ docker compose --profile rag run --rm rag "..." --scope global --json
 # retrieval recall@k eval
 docker compose --profile rag run --rm --entrypoint python rag /app/benchmarks/m4/eval.py
 ```
+
+### Memory in context (M5)
+
+With `config/rag.yaml → memory.enabled`, the engine also recalls long-term memories
+([`memory/`](../memory/), [setup](../docs/setup/05-memory.md)) and prepends them as numbered sources
+(`memory:<type>/<id>`) within their own char budget; cited memories are reinforced. `--session <id>` /
+`--new-session` add multi-turn history and log turns for later consolidation. Memory is **fail-soft**
+(answers continue from documents if Postgres/Qdrant are down) and `--no-memory` restores the pure M4 path.
 
 ## Safety
 

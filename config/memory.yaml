@@ -1,0 +1,70 @@
+# PAIEP memory service config (M5) — default for the A+ reference machine.
+# ---------------------------------------------------------------------------
+# Dual store (ADR 0009): Postgres = canonical, user-editable records;
+# Qdrant `memory_semantic` = semantic recall (one vector per ACTIVE item).
+# Writes hit Postgres immediately; embedding + vector upsert run on a
+# background worker (outbox: memory_item.vector_status) so they never block
+# the interactive path (NFR-004). Profile A swaps in memory.profile-a.yaml
+# (SQLite + local vectors, no Postgres/Qdrant) via MEMORY_CONFIG.
+#
+# Env overrides: MEMORY_CONFIG (path to this file), MEMORY_DSN (full Postgres
+# DSN), POSTGRES_PASSWORD, MEMORY_SQLITE_PATH, QDRANT_URL, OLLAMA_BASE_URL,
+# EMBED_MODEL, CHAT_MODEL. The embedding model is inherited from
+# config/embeddings.yaml and checked against config/index-catalog.yaml.
+# ---------------------------------------------------------------------------
+
+backend: postgres              # postgres | sqlite
+auto_migrate: true             # apply pending migrations on first connect
+
+postgres:
+  host: postgres               # backend-network name; host CLI: 127.0.0.1 (POSTGRES_HOST_PORT)
+  port: 5432
+  dbname: paiep
+  user: paiep
+  # password: NEVER here — read from env POSTGRES_PASSWORD (docker/.env).
+
+sqlite:
+  path: /data/memory.db        # only used when backend: sqlite
+
+vectors:
+  backend: qdrant              # qdrant | local (local requires backend: sqlite)
+  collection: memory_semantic  # must exist in config/index-catalog.yaml (M2)
+
+writes:
+  async: true                  # embed + upsert off the request path (outbox worker)
+
+# --- Recall (semantic, scope-filtered; FR-012) -----------------------------
+recall:
+  top_k: 5
+  score_threshold: 0.5         # cosine; calibrated on nomic-embed-text (see benchmarks/m5)
+  include_global: true         # project:<x> recall also sees global memories
+
+# --- Consolidation (session -> long-term) ----------------------------------
+dedup:
+  semantic_threshold: 0.92     # >= this cosine vs. an active item in the same scope => merge
+
+consolidation:
+  promote_roles: [fact]                      # session turns with these roles are promoted
+  capture_prefixes: ["remember:", "note:"]   # ...and user turns starting with these
+  fact_confidence: 0.8
+  summarize_with_llm: false    # CPU: ~1 min per summary on A+, so opt-in
+  summary_max_tokens: 200
+  chat_model: qwen2.5-coder:7b # used only when summarize_with_llm (env CHAT_MODEL wins)
+
+# --- Forgetting policy (Phase 08 §5.3) --------------------------------------
+retention:
+  default_confidence: 0.7
+  reinforce_step: 0.05         # confidence bump each time a memory is used in an answer
+  decay:
+    half_life_days: 90         # effective = confidence * 0.5^(days_unused / half_life)
+    archive_below: 0.2         # maintain() archives items whose effective confidence drops below
+    exempt_types: [preference, decision]
+  default_ttl_days: {}         # per-type TTL, e.g. {progress: 30}; null/absent = no expiry
+  max_active_items: 5000       # hard cap; lowest effective confidence archived first
+
+# --- Session memory (Phase 08 §6) -------------------------------------------
+session:
+  ttl_hours: 24                # open sessions idle longer than this are consolidated + expired
+  max_turns: 200               # older user/assistant turns beyond this are evicted
+  history_turns: 6             # recent turns fed back to the model by rag-query --session
+  evict_on_close: true         # delete turns after consolidation (summary/facts are kept)

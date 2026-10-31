@@ -2,8 +2,9 @@
 
 > An enterprise-grade, open-source, offline-first Personal AI Engineering Platform that runs primarily on a local laptop and evolves into a personal AI operating system.
 
-[![Status](https://img.shields.io/badge/status-architecture--phase-blue)]()
+[![Status](https://img.shields.io/badge/status-M5%20implemented-blue)]()
 [![Phases](https://img.shields.io/badge/phases-10%2F12%20drafted-blue)]()
+[![CI](https://github.com/savadkv01/Personal-AI-Engineering-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/savadkv01/Personal-AI-Engineering-Platform/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-TBD-lightgrey)]()
 [![Offline First](https://img.shields.io/badge/offline-first-success)]()
 [![Open Source](https://img.shields.io/badge/stack-open--source-brightgreen)]()
@@ -70,8 +71,9 @@ comparable in ambition to GitHub Copilot Agent while remaining fully open and ex
 ```text
 Personal-AI-Engineering-Platform/
 ├── .github/
-│   └── prompts/          # Executable, independent prompt files (01..12)
-│       └── implementation/   # Milestone prompts (M0..M10)
+│   ├── prompts/          # Executable, independent prompt files (01..12)
+│   │   └── implementation/   # Milestone prompts (M0..M10)
+│   └── workflows/        # CI: lint + unit tests, Markdown links, Compose config
 ├── docs/
 │   ├── phases/           # Full documentation per phase
 │   ├── adr/              # Architecture Decision Records
@@ -81,12 +83,13 @@ Personal-AI-Engineering-Platform/
 ├── docker/               # Compose files and container definitions
 ├── config/               # Model registry and platform configuration
 ├── scripts/              # Bootstrap and model-pull helper scripts
-├── memory/               # Long-term & session memory design/artifacts
+├── memory/               # Memory service (M5): migrations + Python package
 ├── agents/               # Agent definitions and collaboration specs
 ├── knowledge/            # Knowledge base, notes, book library index
 ├── rag/                  # RAG pipelines and configuration
 ├── models/               # Model profiles, quantization notes
 ├── benchmarks/           # Evaluation harnesses and results
+├── tests/                # Offline unit tests (pytest) for rag/
 └── experiments/          # Scratch / research experiments
 ```
 
@@ -150,6 +153,27 @@ Key decisions are recorded in [docs/adr/](docs/adr/):
 each with documentation, Mermaid diagrams, and ADRs. Phase 10 breaks delivery into small,
 reversible milestones (M0–M10) with per-milestone specs in
 [implementation/](implementation/) and prompts in
-[.github/prompts/implementation/](.github/prompts/implementation/README.md). **Milestone
-execution awaits approval** before any implementation begins. No further phases start
-automatically.
+[.github/prompts/implementation/](.github/prompts/implementation/README.md).
+
+| Milestone | Status |
+|-----------|--------|
+| [M0 — Baseline](implementation/M0-baseline.md) | ✅ Implemented (2026-07-19) |
+| [M1 — LLM runtime](implementation/M1-llm-runtime.md) | ✅ Implemented (2026-07-19) |
+| [M2 — Vector DB](implementation/M2-vector-db.md) | ✅ Implemented (2026-07-20) |
+| [M3 — Embeddings & ingestion](implementation/M3-embeddings-ingestion.md) | ✅ Implemented (2026-07-20) |
+| [M4 — RAG pipeline](implementation/M4-rag-pipeline.md) | ✅ Implemented (2026-07-20) |
+| [M5 — Memory service](implementation/M5-memory.md) | ✅ Implemented (2026-10-31) — [setup](docs/setup/05-memory.md) |
+| M6–M10 | ⏳ Planned — each starts only after explicit approval |
+
+Phases 11–12 and milestones M6+ do not start automatically.
+
+### Development checks
+
+```bash
+pip install -r requirements-dev.txt   # Python 3.11 (matches the ingest/rag image)
+ruff check . && pytest                # offline: no Ollama/Qdrant needed
+python scripts/check-links.py         # relative Markdown links
+make -C docker help                   # stack + RAG/memory shortcuts (build, ingest, ask, eval, memory, ...)
+```
+
+The same checks run in [CI](.github/workflows/ci.yml) on every push/PR.

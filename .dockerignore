@@ -6,7 +6,7 @@ docs
 benchmarks
 experiments
 architecture
-memory
+memory/*.md
 models
 knowledge
 implementation

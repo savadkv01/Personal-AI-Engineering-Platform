@@ -4,13 +4,16 @@ Idempotency: each source file's chunks get deterministic point IDs
 (``uuid5(source, chunk_index)``) and carry a ``checksum`` payload. On re-run, a
 file whose checksum is unchanged is skipped; a changed file has its old points
 deleted (by ``source`` filter) before fresh chunks are upserted, so shrinking
-files never leave orphans.
+files never leave orphans. With ``prune=True``, sources under the ingested
+paths that no longer exist on disk are deleted too.
+
+Scope precedence: a document's own front-matter ``scope`` wins over the
+run-level ``scope`` argument (which acts as the default).
 """
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from qdrant_client import QdrantClient
 from qdrant_client import models as qm
@@ -29,6 +32,7 @@ class Stats:
     files_skipped: int = 0
     files_unrouted: int = 0
     chunks_upserted: int = 0
+    sources_pruned: int = 0
     per_collection: dict[str, int] = field(default_factory=dict)
 
     def as_dict(self) -> dict:
@@ -38,6 +42,7 @@ class Stats:
             "files_skipped": self.files_skipped,
             "files_unrouted": self.files_unrouted,
             "chunks_upserted": self.chunks_upserted,
+            "sources_pruned": self.sources_pruned,
             "per_collection": self.per_collection,
         }
 
@@ -63,9 +68,36 @@ def _delete_source(client: QdrantClient, collection: str, source: str) -> None:
     client.delete(collection_name=collection, points_selector=qm.FilterSelector(filter=flt), wait=True)
 
 
+def _indexed_sources(client: QdrantClient, collection: str) -> set[str]:
+    sources: set[str] = set()
+    offset = None
+    while True:
+        points, offset = client.scroll(collection_name=collection, limit=256, offset=offset,
+                                       with_payload=["source"], with_vectors=False)
+        for p in points:
+            src = (p.payload or {}).get("source")
+            if src:
+                sources.add(src)
+        if offset is None:
+            return sources
+
+
+def stale_sources(indexed: set[str], seen: set[str], roots: list[str]) -> set[str]:
+    """Indexed sources under one of ``roots`` that were not seen on disk this run.
+
+    Restricting to ``roots`` means ingesting one folder never prunes another.
+    """
+    norm = [r.rstrip("/") for r in roots]
+
+    def under(src: str) -> bool:
+        return any(r in ("", ".") or src == r or src.startswith(r + "/") for r in norm)
+
+    return {s for s in indexed - seen if under(s)}
+
+
 def run(paths: list[str], *, scope: str = "global", tags: list[str] | None = None,
         collection_override: str | None = None, force: bool = False,
-        dry_run: bool = False, source_root: str | None = None,
+        dry_run: bool = False, prune: bool = False, source_root: str | None = None,
         config: Config | None = None, log=print) -> Stats:
     cfg = config or load_config()
     tags = tags or []
@@ -90,8 +122,10 @@ def run(paths: list[str], *, scope: str = "global", tags: list[str] | None = Non
                 f"{cfg.service.dim} (model={cfg.service.model})")
 
     stats = Stats()
+    seen: set[str] = set()
     for path in iter_files(paths, cfg.exclude_dirs, cfg.exclude_names):
         stats.files_seen += 1
+        seen.add(_source_rel(path, source_root))
         rule = cfg.route(path)
         if rule is None and collection_override is None:
             stats.files_unrouted += 1
@@ -117,7 +151,7 @@ def run(paths: list[str], *, scope: str = "global", tags: list[str] | None = Non
             log(f"  ! {source}: no text extracted (skip)")
             continue
 
-        doc_scope = scope
+        doc_scope = str(doc.scope) if doc.scope else scope
         doc_tags = sorted({*tags, *doc.tags})
         ts = now_iso()
 
@@ -138,7 +172,7 @@ def run(paths: list[str], *, scope: str = "global", tags: list[str] | None = Non
                     chunk_index=idx, checksum=checksum, title=doc.title, text=chunk,
                     embed_model=cfg.service.model, embed_dim=cfg.service.dim, ingested_at=ts),
             )
-            for idx, (chunk, vec) in enumerate(zip(chunks, vectors))
+            for idx, (chunk, vec) in enumerate(zip(chunks, vectors, strict=True))
         ]
 
         # Replace prior points for this source (handles edits/shrink), then upsert.
@@ -149,5 +183,16 @@ def run(paths: list[str], *, scope: str = "global", tags: list[str] | None = Non
         stats.chunks_upserted += len(points)
         stats.per_collection[collection] = stats.per_collection.get(collection, 0) + len(points)
         log(f"  + {source}: {len(points)} chunk(s) -> {collection} (type={doc_type})")
+
+    if prune:
+        roots = [_source_rel(p, source_root) for p in paths]
+        for col in sorted(c for c in targets if c):
+            for src in sorted(stale_sources(_indexed_sources(client, col), seen, roots)):
+                stats.sources_pruned += 1
+                if dry_run:
+                    log(f"  ~ {src}: would prune from {col} (file no longer exists)")
+                    continue
+                _delete_source(client, col, src)
+                log(f"  - {src}: pruned from {col} (file no longer exists)")
 
     return stats

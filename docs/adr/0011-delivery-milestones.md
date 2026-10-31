@@ -1,6 +1,6 @@
 # ADR 0011: Delivery Milestones
 
-- **Status:** Proposed
+- **Status:** Accepted — M0–M4 delivered under this plan (validated 2026-07-19 … 2026-07-20)
 - **Date:** 2026-07-19
 
 ## Context
