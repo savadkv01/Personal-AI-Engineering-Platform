@@ -7,6 +7,7 @@ from qdrant_client import QdrantClient
 from qdrant_client import models as qm
 
 from rag.ingest.embedder import embed_texts
+
 from .config import QueryConfig
 
 
@@ -40,16 +41,17 @@ def retrieve(question: str, cfg: QueryConfig, *, collection: str | None = None,
 
     vector = embed_texts([question], cfg.embed)[0]
     client = QdrantClient(url=cfg.qdrant_url, timeout=60)
-    hits = client.search(
+    # Universal Query API (qdrant-client/server >= 1.10); replaces deprecated `search`.
+    res = client.query_points(
         collection_name=col,
-        query_vector=vector,
+        query=vector,
         query_filter=_build_filter(scope, tags),
         limit=k,
         score_threshold=cfg.retrieval.score_threshold,
         with_payload=True,
     )
     out: list[RetrievedChunk] = []
-    for h in hits:
+    for h in res.points:
         p = h.payload or {}
         out.append(RetrievedChunk(
             id=str(h.id), score=float(h.score), text=p.get("text", ""),

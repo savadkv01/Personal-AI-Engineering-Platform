@@ -480,7 +480,8 @@ Seed Markdown notes accompany this phase:
 - Chunk sizes/overlap and hybrid fusion weights are **starting points** to be tuned with measured recall (M1).
 - Two engines (Qdrant + Postgres) are acceptable on the 32 GB machine; **Profile A consolidates** (SQLite/pgvector).
 - Book library is **personal and owned**; no copyrighted full text is committed to the repo.
-- Memory **scope** (global vs project) uses payload/columns; final retention policy tuned in **M5**.
+- Memory **scope** (global vs project) uses payload/columns; final retention policy tuned in **M5**
+  (finalised — see [ADR 0009 → M5 notes](../adr/0009-vector-store-and-memory.md#implementation-notes--m5-2026-10-31)).
 
 ---
 

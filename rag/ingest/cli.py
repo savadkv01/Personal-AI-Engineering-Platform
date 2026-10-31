@@ -4,6 +4,7 @@ Examples:
   python scripts/ingest.py knowledge --scope global --tags paiep,docs
   python scripts/ingest.py rag/ingest --collection repo_code --scope project:paiep
   python scripts/ingest.py knowledge --dry-run
+  python scripts/ingest.py knowledge --prune      # also drop deleted files' chunks
 """
 from __future__ import annotations
 
@@ -31,6 +32,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="re-embed even if the file checksum is unchanged")
     p.add_argument("--dry-run", action="store_true",
                    help="report what would be ingested; no embeds/upserts")
+    p.add_argument("--prune", action="store_true",
+                   help="delete indexed sources under PATHS whose files no longer exist")
     p.add_argument("--json", action="store_true", help="print stats as JSON")
     return p
 
@@ -46,13 +49,14 @@ def main(argv: list[str] | None = None) -> int:
 
     stats = run(args.paths, scope=args.scope, tags=tags,
                 collection_override=args.collection, force=args.force,
-                dry_run=args.dry_run, config=cfg)
+                dry_run=args.dry_run, prune=args.prune, config=cfg)
 
     if args.json:
         print(json.dumps(stats.as_dict(), indent=2))
     else:
         print(f"[ingest] files: seen={stats.files_seen} ingested={stats.files_ingested} "
-              f"skipped={stats.files_skipped} unrouted={stats.files_unrouted}")
+              f"skipped={stats.files_skipped} unrouted={stats.files_unrouted} "
+              f"pruned_sources={stats.sources_pruned}")
         print(f"[ingest] chunks upserted={stats.chunks_upserted} per_collection={stats.per_collection}")
     print("[ingest] done.")
     return 0

@@ -73,8 +73,8 @@ def _load_pdf(path: Path) -> LoadedDoc:
 
 def _load_epub(path: Path) -> LoadedDoc:
     import ebooklib  # lazy
-    from ebooklib import epub
     from bs4 import BeautifulSoup
+    from ebooklib import epub
 
     book = epub.read_epub(str(path))
     parts: list[str] = []

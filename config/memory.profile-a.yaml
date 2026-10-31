@@ -1,0 +1,30 @@
+# PAIEP memory config — Profile A (16 GB, CPU-only) substitute. [M5]
+# ---------------------------------------------------------------------------
+# Zero extra services: SQLite file for records + a local brute-force vector
+# index in the same file (no Postgres, no Qdrant for memory). Select with:
+#   MEMORY_CONFIG=/app/config/memory.profile-a.yaml
+# Same schema/semantics as config/memory.yaml; only storage differs.
+# Keys not set here fall back to the defaults in config/memory.yaml.
+# ---------------------------------------------------------------------------
+
+backend: sqlite
+auto_migrate: true
+
+sqlite:
+  path: /data/memory.db        # paiep_memory named volume in Compose; env MEMORY_SQLITE_PATH overrides
+
+vectors:
+  backend: local               # vectors stored in the memory_vector table
+
+writes:
+  async: true
+
+recall:
+  top_k: 3                     # smaller on Profile A
+
+retention:
+  max_active_items: 2000       # brute-force recall stays fast below ~20k
+
+session:
+  max_turns: 100
+  history_turns: 4

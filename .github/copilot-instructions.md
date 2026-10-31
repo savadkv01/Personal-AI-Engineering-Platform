@@ -100,7 +100,7 @@ Always give scalability guidance per profile.
 The actual development machine is documented in
 [`docs/setup/environment.md`](../docs/setup/environment.md) and is the **first-class target**:
 
-- **HP EliteBook 840 G7** · Windows 11 Pro · WSL2 (Ubuntu 22.04/24.04) · Docker Desktop 29.1.3 + Compose v2.
+- **HP EliteBook 840 G7** · Windows 11 Pro · WSL2 (Ubuntu 22.04/24.04) · Docker Desktop 29.6.1 + Compose v2.
 - **Intel Core i7-10610U (4C/8T)** · **32 GB RAM** · **Intel UHD integrated GPU only (no CUDA/ROCm)** · ~485 GB free.
 - Effective profile: **"A+" hybrid** — 32 GB RAM (like Profile B) but **CPU-only inference** (like Profile A).
 

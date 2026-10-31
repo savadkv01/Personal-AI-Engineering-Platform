@@ -38,6 +38,12 @@ its source file. On re-run, unchanged files are **skipped**; changed files have 
 deleted (by `source` filter) before fresh chunks are upserted — so edits/shrinks never leave
 duplicates or orphans. Use `--force` to re-embed regardless.
 
+**Deleted files:** pass `--prune` to also delete indexed sources **under the given paths** whose files no
+longer exist (other folders are never touched; combine with `--dry-run` to preview).
+
+**Scope precedence:** a document's own front-matter `scope:` wins; `--scope` is the default for files
+without one. `tags` are merged (`--tags` ∪ front-matter tags).
+
 ## Run it
 
 ```bash
@@ -53,6 +59,10 @@ docker compose --profile ingest run --rm ingest knowledge --scope global --tags 
 docker compose --profile ingest run --rm ingest knowledge --dry-run        # plan only
 docker compose --profile ingest run --rm ingest rag/ingest --collection repo_code --scope project:paiep
 docker compose --profile ingest run --rm ingest knowledge --force          # re-embed all
+docker compose --profile ingest run --rm ingest knowledge --prune --dry-run  # preview deleted-file cleanup
+
+# same via the Makefile (from repo root)
+make -C docker ingest ARGS="knowledge --prune"
 ```
 
 > The ingest container attaches only to the **internal** `backend` network (no internet egress), so

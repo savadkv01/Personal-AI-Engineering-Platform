@@ -20,7 +20,7 @@
 | Item | Value |
 |------|-------|
 | WSL | WSL2 enabled; default distro **Ubuntu-22.04** (also Ubuntu-24.04 present) |
-| Docker | Docker Desktop — Engine **29.1.3** |
+| Docker | Docker Desktop — Engine **29.6.1** (upgraded from 29.1.3, which was used for M0–M1 validation) |
 | Compose | Compose **v2** (bundled `v5.0.0-desktop.1`) — use `docker compose` (space, not hyphen) |
 | Docker backend | `docker-desktop` WSL2 distro running |
 

@@ -1,6 +1,6 @@
 # ADR 0009: Vector Store & Memory Architecture
 
-- **Status:** Accepted (schema/strategy defaults; tune in M1/M5) · **Vector store landed in M2 (2026-07-20)**
+- **Status:** Accepted (schema/strategy defaults; tune in M1/M5) · **Vector store landed in M2 (2026-07-20)** · **Memory landed in M5 (2026-10-31)**
 - **Date:** 2026-07-19
 
 ## Context
@@ -84,4 +84,29 @@ only; Postgres/memory land in M5).
   data **persisted** across `down`/`up`; reachable from the **internet-isolated** `backend` network
   (egress `Network is unreachable`, Qdrant reachable). See
   [`implementation/M2-vector-db.md`](../../implementation/M2-vector-db.md) → Execution Results.
+
+## Implementation Notes — M5 (2026-10-31)
+
+The **memory** half of this ADR is now implemented and validated; this section **finalises the memory
+scope and retention decisions** deferred from [Phase 01](../phases/01-project-vision.md) /
+[Phase 08](../phases/08-knowledge-memory.md).
+
+- **Stores:** Postgres `16.14-alpine` (`paiep_db`, Compose profiles `memory`/`rag`) holds `memory_item`,
+  `session`, `session_turn` via versioned, reversible migrations
+  ([`memory/migrations/`](../../memory/migrations/)). Qdrant `memory_semantic` holds **one vector per
+  active item**, point id = `memory_id` (decision #5).
+- **Consistency:** an outbox flag (`vector_status`) drained by an async worker keeps writes non-blocking
+  (4 ms p50) and the stores consistent; recall hydrates from Postgres; `memory check --repair`
+  reconciles drift (the follow-up reconciliation job, delivered).
+- **Scope (final):** `global` | `project:<name>`; project recall **includes global** by default, never
+  other projects; `archive-scope` prunes finished projects.
+- **Retention (final):** exact + semantic dedup (cosine ≥ 0.92, same type/scope → `merged`),
+  reinforce-on-use (+0.05), supersede with history, TTL per item/type, computed time-decay
+  (half-life 90 d, archive below 0.2, preferences/decisions exempt), hard cap 5000 active items,
+  user delete cascades to vectors. Session turns are evicted on close after promotion.
+- **Profile A (decision #8):** SQLite + a local brute-force vector index (no Postgres/Qdrant) rather than
+  pgvector — zero extra services; swappable behind the same interface.
+- **Recall threshold:** 0.5 cosine for `nomic-embed-text` (relevant 0.51–0.79, unrelated ≤ 0.42).
+- **Deferred:** `task_lock` / `session_artifact` (M6), cross-encoder re-rank, scheduled `maintain` (M6/M9).
+  See [`implementation/M5-memory.md`](../../implementation/M5-memory.md) → Execution Results.
 

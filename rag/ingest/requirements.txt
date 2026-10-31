@@ -6,3 +6,4 @@ PyYAML==6.0.2                  # config + front-matter parsing
 pypdf==5.1.0                   # PDF loader (lazy-imported)
 EbookLib==0.18                 # EPUB loader (lazy-imported)
 beautifulsoup4==4.12.3         # EPUB HTML -> text (lazy-imported)
+psycopg[binary]==3.2.13        # M5 memory: Postgres driver (lazy-imported; SQLite needs nothing)

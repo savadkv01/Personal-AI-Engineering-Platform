@@ -76,10 +76,25 @@ internal `backend` network.
 - **Latency.** Grounded generation ≈ 1–3 min (`qwen2.5-coder:7b` ≈ 3.5 tok/s, CPU-only); retrieval and the
   no-answer path are sub-second.
 
+### Post-validation hardening (2026-10-31)
+
+Review follow-ups, covered by offline unit tests in [`tests/`](../tests/) (run in CI):
+
+- **Model refusal is ungrounded.** If the model replies with the no-answer phrase, the result is
+  `grounded=False` with **no citations** (previously all retrieved sources were still listed).
+- **Cited-only citations.** Only sources the answer actually marks as `[n]` are returned (falls back to
+  all assembled sources if the model emits no valid markers).
+- **Single no-answer phrase.** The system prompt now uses `guardrails.no_answer_message` from
+  `config/rag.yaml` instead of a hard-coded copy; the unused `context.cite` key was removed.
+- **Qdrant Query API.** Retrieval uses `query_points` instead of the deprecated `search` (same results;
+  supported by the pinned `qdrant-client` 1.12.1 / server v1.12.6).
+- Rebuild the image to pick these up: `make -C docker build`.
+
 ## Rollback Strategy
 
 - Remove the RAG query module; **M1–M3 remain functional** independently (index stays intact).
-- Revert `rag/pipeline/`, `rag/service/`, `config/rag.yaml` via `git restore`.
+- Revert `rag/query/`, `scripts/rag-query.py`, `config/rag.yaml` via `git restore`, and remove the `rag`
+  Compose service.
 - No schema/data changes — nothing to migrate back.
 
 ## Documentation to Produce

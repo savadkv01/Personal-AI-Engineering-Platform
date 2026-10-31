@@ -81,7 +81,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"         grounded={r['answer_grounded']} cites_expected={r['answer_cites_expected']}")
     print(f"\n[m4-eval] recall@{k} = {summary['recall_at_k']}  ({hits}/{n})")
     if args.answers:
-        print(f"[m4-eval] answer citation accuracy = {summary['answer_citation_accuracy']}  ({answered_ok}/{n})")
+        acc = summary["answer_citation_accuracy"]
+        print(f"[m4-eval] answer citation accuracy = {acc}  ({answered_ok}/{n})")
     return 0
 
 
