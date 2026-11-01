@@ -1,0 +1,104 @@
+{
+  "summary": {
+    "timestamp": "2026-11-01T09:41:37.719347+00:00",
+    "model": "qwen2.5-coder:7b",
+    "n": 8,
+    "routing_accuracy": 0.625,
+    "llm_plans": 8,
+    "planner_secs_median": 18.4,
+    "planner_secs_max": 89.5,
+    "prompt_tokens_median": 422
+  },
+  "rows": [
+    {
+      "task": "Add a parse_duration('1h30m') helper with tests in experiments/m6_demo",
+      "expect": "software_engineer",
+      "got": "software_engineer",
+      "ok": true,
+      "plan": [
+        "software_engineer"
+      ],
+      "method": "llm",
+      "secs": 89.5
+    },
+    {
+      "task": "Fix the off-by-one bug in the chunking window function",
+      "expect": "software_engineer",
+      "got": "software_engineer",
+      "ok": true,
+      "plan": [
+        "software_engineer"
+      ],
+      "method": "llm",
+      "secs": 18.4
+    },
+    {
+      "task": "Write a beginner guide in docs/ explaining how to run the memory CLI",
+      "expect": "documentation_writer",
+      "got": "documentation_writer",
+      "ok": true,
+      "plan": [
+        "documentation_writer"
+      ],
+      "method": "llm",
+      "secs": 15.0
+    },
+    {
+      "task": "Summarise the offline-first design as a short README for newcomers",
+      "expect": "documentation_writer",
+      "got": "architect",
+      "ok": false,
+      "plan": [
+        "architect",
+        "documentation_writer"
+      ],
+      "method": "llm",
+      "secs": 29.6
+    },
+    {
+      "task": "Compare Qdrant and pgvector for Profile A and draft an ADR",
+      "expect": "architect",
+      "got": "software_engineer",
+      "ok": false,
+      "plan": [
+        "software_engineer",
+        "architect"
+      ],
+      "method": "llm",
+      "secs": 25.0
+    },
+    {
+      "task": "Design the data model for storing agent task history",
+      "expect": "architect",
+      "got": "architect",
+      "ok": true,
+      "plan": [
+        "architect"
+      ],
+      "method": "llm",
+      "secs": 13.6
+    },
+    {
+      "task": "Review the changes in rag/query/engine.py for correctness",
+      "expect": "reviewer",
+      "got": "software_engineer",
+      "ok": false,
+      "plan": [
+        "software_engineer"
+      ],
+      "method": "llm",
+      "secs": 14.8
+    },
+    {
+      "task": "Check scripts/qdrant-init.sh for security problems such as injection or leaked secrets",
+      "expect": "security",
+      "got": "security",
+      "ok": true,
+      "plan": [
+        "security"
+      ],
+      "method": "llm",
+      "secs": 15.0
+    }
+  ]
+}

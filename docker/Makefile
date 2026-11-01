@@ -9,7 +9,7 @@ ARGS    ?=
 
 .DEFAULT_GOAL := help
 .PHONY: help config up down ps logs health restart clean nuke \
-        build qdrant-init ingest ask eval bench test memory migrate
+        build qdrant-init ingest ask eval bench test memory migrate agent agent-run
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -69,6 +69,13 @@ memory: ## Memory CLI (M5). ARGS='recall "query" --scope project:x' (see: ARGS=-
 
 migrate: ## Memory schema migrations (M5). ARGS=status|up|down (default: status)
 	$(COMPOSE) --profile memory run --rm memory migrate $(or $(ARGS),status)
+
+agent: ## Agent CLI (M6). ARGS='personas --all' | 'approve <id>' | 'list' (see ARGS=--help)
+	$(COMPOSE) --profile agents run --rm agents $(ARGS)
+
+agent-run: ## Run an agent task (M6). T="task" [ARGS="--scope project:x --agent architect"]
+	@if [ -z "$(T)" ]; then echo 'Usage: make agent-run T="your task" [ARGS=...]'; exit 1; fi
+	$(COMPOSE) --profile agents run --rm agents run "$(T)" $(ARGS)
 
 test: ## Lint + offline unit tests (host; pip install -r requirements-dev.txt first)
 	cd .. && ruff check . && pytest

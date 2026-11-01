@@ -1,0 +1,6 @@
+# PAIEP agent runtime deps (M6) — pinned. LangGraph only (no CrewAI: ADR 0008 amendment).
+langgraph==1.2.19                     # StateGraph, interrupts (HITL), checkpointing
+langgraph-checkpoint-postgres==3.2.0  # durable task state in Postgres (schema `agents`)
+langgraph-checkpoint-sqlite==3.1.3    # Profile A durable task state (SQLite)
+langchain-core==1.7.3                 # LangGraph runtime dependency (no LangChain models used)
+pytest==9.1.1                         # test.run tool (approved test actions)

@@ -1,0 +1,11 @@
+# Labeled routing set for the M6 supervisor (benchmarks/m6/route_eval.py).
+# `expect` = the specialist the FIRST plan step must go to.
+routes:
+  - { task: "Add a parse_duration('1h30m') helper with tests in experiments/m6_demo", expect: software_engineer }
+  - { task: "Fix the off-by-one bug in the chunking window function", expect: software_engineer }
+  - { task: "Write a beginner guide in docs/ explaining how to run the memory CLI", expect: documentation_writer }
+  - { task: "Summarise the offline-first design as a short README for newcomers", expect: documentation_writer }
+  - { task: "Compare Qdrant and pgvector for Profile A and draft an ADR", expect: architect }
+  - { task: "Design the data model for storing agent task history", expect: architect }
+  - { task: "Review the changes in rag/query/engine.py for correctness", expect: reviewer }
+  - { task: "Check scripts/qdrant-init.sh for security problems such as injection or leaked secrets", expect: security }

@@ -47,7 +47,7 @@ server {
         proxy_set_header Host $host;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
-        proxy_read_timeout 300s;   # long generations on CPU
+        proxy_read_timeout 600s;   # long generations on CPU (agents: up to ~900 tokens)
         proxy_buffering off;       # stream tokens as they arrive
     }
 

@@ -410,7 +410,7 @@ can **block**; memory promotion is async to protect CPU latency.
 | Concern | Realized by (Phase 06 / ADR 0007) |
 |---------|-----------------------------------|
 | Orchestration / routing / state | **LangGraph** (supervisor graph, HITL, task state) |
-| Persona definitions (roles/tools/goals) | **CrewAI** declarative configs (Markdown seeds now) |
+| Persona definitions (roles/tools/goals) | **CrewAI-style YAML** executed by LangGraph ([`agents/personas/`](../../agents/personas/); no CrewAI dependency — [ADR 0008 amendment](../adr/0008-agent-orchestration.md#amendment--m6-implementation-2026-11-01)) |
 | Model inference by tier | **Ollama** (Qwen2.5 / Qwen2.5-Coder / Phi-4 / Llama 3.2 / nomic-embed) |
 | Retrieval (`rag.retrieve`) | **LlamaIndex** + **Qdrant** + nomic-embed-text |
 | Shared memory | **PostgreSQL** (structured/state) + **Qdrant** (semantic) |

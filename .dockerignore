@@ -7,10 +7,10 @@ benchmarks
 experiments
 architecture
 memory/*.md
+agents/*.md
 models
 knowledge
 implementation
-agents
 **/__pycache__
 **/*.pyc
 **/.DS_Store

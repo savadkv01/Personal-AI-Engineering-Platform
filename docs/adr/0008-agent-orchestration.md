@@ -1,6 +1,6 @@
 # ADR 0008: Agent Orchestration — Supervisor/Router with Bounded Chains
 
-- **Status:** Accepted
+- **Status:** Accepted · **Amended 2026-11-01 (M6: LangGraph-only runtime, CrewAI-style YAML personas)**
 - **Date:** 2026-07-19
 
 ## Context
@@ -59,3 +59,29 @@ Adopt a **supervisor/router orchestration** with **bounded, mostly-sequential ch
 - Finalize **memory scope + retention/summarization** (Phase 08 / M5).
 - Add **agent-quality evaluation** (task success, review precision) via Langfuse + Phase 11 benchmarks.
 - Introduce **bounded peer sub-graphs** once concurrency budget allows (Profiles B–D).
+
+## Amendment — M6 implementation (2026-11-01)
+
+- **Status:** Accepted (amends decision #7 and the "two agent libraries" drawback)
+- **Context:** Implementing M6 showed that the **CrewAI** library would add **107 packages** to the runtime
+  image (ChromaDB, LanceDB, onnxruntime, Kubernetes client, OpenTelemetry, instructor), ships **telemetry on
+  by default** (at odds with offline-first, [ADR 0002](0002-offline-first-priority.md)), and brings its own
+  agent loop that would duplicate LangGraph's control flow (the drawback this ADR already warned about).
+  LangGraph alone adds 26 light packages and provides the state machine, durable checkpoints and
+  human-in-the-loop interrupts.
+- **Decision:** **LangGraph is the only agent runtime.** Personas are **CrewAI-style YAML**
+  (`role` / `goal` / `backstory` + PAIEP `tier`, `tools`, `fs_scope`, `memory_write_types`, `guardrails`,
+  `enabled`) in [`agents/personas/`](../../agents/personas/), executed by the LangGraph orchestrator
+  ([`agents/orchestrator/`](../../agents/orchestrator/)). Adding/adjusting an agent stays a **config change**
+  (NFR-024) — the intent of decision #7 is kept, the dependency is not.
+- **Alternatives:** (a) LangGraph + the real CrewAI library with telemetry disabled — familiar API, but
+  +107 packages, a second loop to keep consistent, and higher image/RAM cost on Profile A; **rejected**.
+  (b) CrewAI only — loses durable checkpoints/HITL interrupts; **rejected**.
+- **Consequences:** one control model to debug and trace; smaller image; no third-party telemetry. CrewAI
+  YAML is close enough that importing CrewAI later (Profile D) remains possible. Implementation details that
+  also realise follow-ups above: HITL checkpoint before any write (LangGraph `interrupt`, Postgres-backed so
+  approval survives restarts), Security veto, bounded remediation, enforced tool policy
+  ([`config/tool-policy.yaml`](../../config/tool-policy.yaml)), JSONL traces until Langfuse (M9). Measured
+  CPU constraint: cold prompt processing ≈ 6 tok/s on the A+ machine, so prompts are kept small and
+  prefix-stable (Ollama prompt cache) and `OLLAMA_NUM_PARALLEL=1`. See
+  [`implementation/M6-agents.md`](../../implementation/M6-agents.md).
