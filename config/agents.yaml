@@ -1,0 +1,59 @@
+# PAIEP agent orchestration (M6) — supervisor/router with bounded chains (ADR 0008).
+# ---------------------------------------------------------------------------
+# Flow: plan (supervisor) -> specialist steps -> quality gate (Reviewer/Security)
+#       -> human approval (interrupt) -> apply queued actions -> finalize (memory).
+# Budgets protect CPU interactivity (NFR-004): when one is exhausted the chain
+# stops and returns a PARTIAL result with the reason (never loops).
+# ---------------------------------------------------------------------------
+
+supervisor:
+  planner: llm                 # llm (structured routing) | keyword (no model call)
+  planner_tier: general
+  max_plan_steps: 3            # specialists the planner may schedule
+  # Few-shot routing examples (in the cached system prompt, so they cost tokens only once).
+  # Keep them different from benchmarks/m6/routes.yaml so the eval stays honest.
+  examples:
+    - { request: "Implement a CSV loader with unit tests", plan: [software_engineer] }
+    - { request: "Write a getting-started guide for the RAG CLI", plan: [documentation_writer] }
+    - { request: "Should sessions use SQLite or Postgres? Write an ADR", plan: [architect] }
+    - { request: "Give me feedback on scripts/ingest.py", plan: [reviewer] }
+    - { request: "Audit docker-compose.yml for exposed secrets", plan: [security] }
+    - { request: "Build a small CLI tool and document how to use it", plan: [software_engineer, documentation_writer] }
+
+budgets:
+  max_agent_steps: 8           # specialist invocations per task (plan + gate + one remediation round)
+  max_llm_calls: 14            # all model calls per task (planner + agents)
+  max_tool_steps_per_agent: 1  # read-tool rounds per agent before it must answer
+  task_timeout_s: 3600         # checked between steps (a single call is bounded by request_timeout)
+
+# Default quality gate (Phase 07 §4.2): appended automatically when changes are proposed.
+# Deterministic checks run first (no model call): every NEW file named in the request
+# must be proposed, and proposed .py files must compile (syntax only, never executed).
+quality_gate:
+  code: [reviewer, security]
+  docs: [reviewer]
+  code_exts: [.py, .sh, .bash, .js, .ts, .sql, .yaml, .yml, .toml, .json, .cfg, .ini, Dockerfile]
+  block_on_severity: high      # a gate finding at this severity...
+  veto: [security]             # ...from these agents blocks the task outright (no apply)
+  remediate: [reviewer]        # ...from these agents triggers a bounded fix round
+  max_remediation_rounds: 1
+
+# Prompt budget. On the A+ CPU, cold prompt processing is ~6 tok/s (measured in M6),
+# so every 1k prompt tokens costs ~2.5 min: keep context lean. Raise on GPU profiles.
+context:
+  rag_top_k: 2                 # KB chunks pre-fetched per agent step
+  memory_top_k: 2              # memories pre-fetched per agent step
+  include_global: true         # project-scoped tasks also see global KB + memories
+  chunk_chars: 400             # per context item
+  prior_chars: 800             # summaries of earlier steps passed forward (refs, not payloads)
+  review_chars: 3000           # proposed file content shown to gate reviewers
+
+memory:
+  task_summary: true           # persist a task_summary memory at the end (M5)
+
+checkpoint:
+  backend: auto                # auto (postgres if memory backend is postgres, else sqlite) | postgres | sqlite | memory
+  postgres_schema: agents      # isolated schema; rollback = DROP SCHEMA agents CASCADE
+  sqlite_path: /data/agents.db
+
+trace_dir: /data/agent-traces  # JSONL audit trail per task (env AGENT_TRACE_DIR)

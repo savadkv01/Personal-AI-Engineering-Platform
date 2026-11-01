@@ -24,10 +24,14 @@ class RetrievedChunk:
     rerank_score: float | None = None
 
 
-def _build_filter(scope: str | None, tags: list[str] | None) -> qm.Filter | None:
+def _build_filter(scope: str | None, tags: list[str] | None,
+                  include_global: bool = False) -> qm.Filter | None:
     must: list = []
     if scope:
-        must.append(qm.FieldCondition(key="scope", match=qm.MatchValue(value=scope)))
+        if include_global and scope != "global":
+            must.append(qm.FieldCondition(key="scope", match=qm.MatchAny(any=[scope, "global"])))
+        else:
+            must.append(qm.FieldCondition(key="scope", match=qm.MatchValue(value=scope)))
     if tags:
         must.append(qm.FieldCondition(key="tags", match=qm.MatchAny(any=tags)))
     return qm.Filter(must=must) if must else None
@@ -35,7 +39,8 @@ def _build_filter(scope: str | None, tags: list[str] | None) -> qm.Filter | None
 
 def retrieve(question: str, cfg: QueryConfig, *, collection: str | None = None,
              scope: str | None = None, tags: list[str] | None = None,
-             limit: int | None = None) -> list[RetrievedChunk]:
+             limit: int | None = None, include_global: bool = False) -> list[RetrievedChunk]:
+    """``include_global``: a project scope also matches ``global`` docs (used by agents, M6)."""
     col = collection or cfg.retrieval.collection
     k = limit or (cfg.rerank.candidate_k if cfg.rerank.enabled else cfg.retrieval.top_k)
 
@@ -45,7 +50,7 @@ def retrieve(question: str, cfg: QueryConfig, *, collection: str | None = None,
     res = client.query_points(
         collection_name=col,
         query=vector,
-        query_filter=_build_filter(scope, tags),
+        query_filter=_build_filter(scope, tags, include_global),
         limit=k,
         score_threshold=cfg.retrieval.score_threshold,
         with_payload=True,

@@ -1,0 +1,55 @@
+# PAIEP model router (M6) — agent role/tier -> model (FR-003, ADR 0004).
+# ---------------------------------------------------------------------------
+# Personas declare a TIER (general | coding | reasoning | draft); this file
+# resolves the tier to a concrete model for the active hardware profile
+# (env PAIEP_PROFILE: cpu | gpu | server). If the resolved model is not
+# installed, the router falls back along `fallback` and finally to
+# `default_model`, so a missing optional model never breaks a task.
+# Nothing in agent code hard-codes a model (O2/FR-002).
+#
+# Calls go through the OpenAI-compatible GATEWAY (bearer token + concurrency
+# cap, ADR 0006). Structured (JSON-schema) output keeps 7B models on-format.
+# Env overrides: ROUTER_BASE_URL, ROUTER_ENDPOINT_KIND, GATEWAY_TOKEN,
+# PAIEP_PROFILE.
+# ---------------------------------------------------------------------------
+
+endpoint:
+  kind: openai                 # openai (gateway /v1) | ollama (native /api/chat)
+  base_url: http://gateway/v1  # backend-network name; ollama kind: http://ollama:11434
+  token_env: GATEWAY_TOKEN     # bearer token (docker/.env); never stored here
+  request_timeout: 600         # seconds per call (CPU generations are slow)
+
+default_model: qwen2.5-coder:7b
+
+profiles:
+  cpu:                         # A / A+ (reference machine): only the 7B coder is pulled
+    general: qwen2.5-coder:7b
+    coding: qwen2.5-coder:7b
+    reasoning: qwen2.5-coder:7b  # phi4 / r1-distill optional (config/models.yaml reason tier)
+    draft: qwen2.5-coder:7b
+  gpu:                         # B / C
+    general: qwen2.5-coder:14b
+    coding: qwen2.5-coder:14b
+    reasoning: phi4
+    draft: llama3.2:1b
+  server:                      # D
+    general: qwen2.5-coder:32b
+    coding: qwen2.5-coder:32b
+    reasoning: phi4
+    draft: llama3.2:1b
+
+# Tier fallback order when a tier's model is unavailable.
+fallback:
+  reasoning: [coding, general]
+  general: [coding]
+  coding: [general]
+  draft: [general, coding]
+
+# Generation caps per tier. At ~3.5 tok/s output on the A+ CPU, 700 tokens ~ 3.3 min;
+# together with prompt processing a call must stay under request_timeout / the
+# gateway's proxy_read_timeout (600 s).
+tier_options:
+  general:   { temperature: 0.2, max_tokens: 500 }
+  coding:    { temperature: 0.1, max_tokens: 700 }
+  reasoning: { temperature: 0.1, max_tokens: 400 }
+  draft:     { temperature: 0.0, max_tokens: 200 }

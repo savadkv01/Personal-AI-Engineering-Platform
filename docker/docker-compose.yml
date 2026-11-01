@@ -76,7 +76,7 @@ services:
   ollama:
     image: ${OLLAMA_IMAGE:-ollama/ollama:0.6.2}
     container_name: ${COMPOSE_PROJECT_NAME:-paiep}_ollama
-    profiles: ["inference", "gateway", "spike", "ingest", "rag", "memory"]
+    profiles: ["inference", "gateway", "spike", "ingest", "rag", "memory", "agents"]
     restart: unless-stopped
     networks: [edge, backend]
     ports:
@@ -84,6 +84,13 @@ services:
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
       - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-30m}
+      # Default context window for requests that cannot set num_ctx (OpenAI-compatible
+      # /v1 via the gateway, used by agents). Matches RAG's num_ctx -> no model reloads.
+      - OLLAMA_CONTEXT_LENGTH=${OLLAMA_CONTEXT_LENGTH:-8192}
+      # One inference slot: on a 4-core CPU extra slots add no throughput but cost KV-cache
+      # RAM (4 slots x 8k ctx = 1.8 GiB) and defeat prompt-prefix caching between the
+      # sequential calls of an agent chain (M6 measurement: cold prompt eval ~6 tok/s).
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-1}
     volumes:
       - paiep_models:/root/.ollama
     healthcheck:
@@ -102,7 +109,7 @@ services:
   gateway:
     image: ${GATEWAY_IMAGE:-nginx:1.27-alpine}
     container_name: ${COMPOSE_PROJECT_NAME:-paiep}_gateway
-    profiles: ["gateway", "spike"]
+    profiles: ["gateway", "spike", "agents"]
     restart: unless-stopped
     depends_on:
       ollama:
@@ -137,7 +144,7 @@ services:
   qdrant:
     image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.12.6}
     container_name: ${COMPOSE_PROJECT_NAME:-paiep}_qdrant
-    profiles: ["vectordb", "spike", "ingest", "rag", "memory"]
+    profiles: ["vectordb", "spike", "ingest", "rag", "memory", "agents"]
     restart: unless-stopped
     networks: [edge, backend]
     ports:
@@ -265,7 +272,7 @@ services:
   postgres:
     image: ${POSTGRES_IMAGE:-postgres:16.14-alpine}
     container_name: ${COMPOSE_PROJECT_NAME:-paiep}_postgres
-    profiles: ["memory", "rag"]
+    profiles: ["memory", "rag", "agents"]
     restart: unless-stopped
     networks: [edge, backend]
     ports:
@@ -320,4 +327,50 @@ services:
     volumes:
       - ../config:/app/config:ro
       - ../benchmarks:/app/benchmarks
+      - paiep_memory:/data
+
+  # -------------------------------------------------------------------------
+  # agents — supervisor-routed multi-agent tasks with HITL approval. [M6]
+  # One-shot CLI (LangGraph). Models via the GATEWAY (token + concurrency cap);
+  # KB via qdrant, memory + durable task state via postgres (schema `agents`).
+  # The repo is mounted at /workspace: agents READ within their scope; WRITES
+  # are only proposals until the quality gate passes AND you approve:
+  #   docker compose --profile agents run --rm agents run "Add a slugify helper ..."
+  #   docker compose --profile agents run --rm agents approve <task_id>
+  # Policy: config/tool-policy.yaml (default-deny; shell/web/container off).
+  # -------------------------------------------------------------------------
+  agents:
+    build:
+      context: ..
+      dockerfile: rag/ingest/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-paiep}_ingest
+    container_name: ${COMPOSE_PROJECT_NAME:-paiep}_agents
+    profiles: ["agents"]
+    restart: "no"
+    depends_on:
+      gateway:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+    entrypoint: ["python", "/app/scripts/agent-cli.py"]
+    environment:
+      - ROUTER_BASE_URL=http://gateway/v1
+      - GATEWAY_TOKEN=${GATEWAY_TOKEN:-paiep-local-dev-token}
+      - PAIEP_PROFILE=${PAIEP_PROFILE:-cpu}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - QDRANT_URL=http://qdrant:6333
+      - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-paiep-local-dev-password}
+      - MEMORY_CONFIG=${MEMORY_CONFIG:-/app/config/memory.yaml}
+      - AGENT_WORKSPACE=/workspace
+      - AGENT_TRACE_DIR=/data/agent-traces
+      # Offline-first: never ship traces to LangSmith (LangGraph dependency).
+      - LANGSMITH_TRACING=false
+      - LANGCHAIN_TRACING_V2=false
+    volumes:
+      - ../config:/app/config:ro
+      - ..:/workspace
       - paiep_memory:/data

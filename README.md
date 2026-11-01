@@ -2,7 +2,7 @@
 
 > An enterprise-grade, open-source, offline-first Personal AI Engineering Platform that runs primarily on a local laptop and evolves into a personal AI operating system.
 
-[![Status](https://img.shields.io/badge/status-M5%20implemented-blue)]()
+[![Status](https://img.shields.io/badge/status-M6%20implemented-blue)]()
 [![Phases](https://img.shields.io/badge/phases-10%2F12%20drafted-blue)]()
 [![CI](https://github.com/savadkv01/Personal-AI-Engineering-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/savadkv01/Personal-AI-Engineering-Platform/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-TBD-lightgrey)]()
@@ -84,7 +84,7 @@ Personal-AI-Engineering-Platform/
 ├── config/               # Model registry and platform configuration
 ├── scripts/              # Bootstrap and model-pull helper scripts
 ├── memory/               # Memory service (M5): migrations + Python package
-├── agents/               # Agent definitions and collaboration specs
+├── agents/               # Agent runtime (M6): LangGraph orchestrator, YAML personas, tool policy
 ├── knowledge/            # Knowledge base, notes, book library index
 ├── rag/                  # RAG pipelines and configuration
 ├── models/               # Model profiles, quantization notes
@@ -163,9 +163,10 @@ reversible milestones (M0–M10) with per-milestone specs in
 | [M3 — Embeddings & ingestion](implementation/M3-embeddings-ingestion.md) | ✅ Implemented (2026-07-20) |
 | [M4 — RAG pipeline](implementation/M4-rag-pipeline.md) | ✅ Implemented (2026-07-20) |
 | [M5 — Memory service](implementation/M5-memory.md) | ✅ Implemented (2026-10-31) — [setup](docs/setup/05-memory.md) |
-| M6–M10 | ⏳ Planned — each starts only after explicit approval |
+| [M6 — Agent ecosystem](implementation/M6-agents.md) | ✅ Implemented (2026-11-01) — [setup](docs/setup/06-agents.md) · [agents](agents/README.md) |
+| M7–M10 | ⏳ Planned — each starts only after explicit approval |
 
-Phases 11–12 and milestones M6+ do not start automatically.
+Phases 11–12 and milestones M7+ do not start automatically.
 
 ### Development checks
 
@@ -173,7 +174,7 @@ Phases 11–12 and milestones M6+ do not start automatically.
 pip install -r requirements-dev.txt   # Python 3.11 (matches the ingest/rag image)
 ruff check . && pytest                # offline: no Ollama/Qdrant needed
 python scripts/check-links.py         # relative Markdown links
-make -C docker help                   # stack + RAG/memory shortcuts (build, ingest, ask, eval, memory, ...)
+make -C docker help                   # stack, RAG, memory and agent shortcuts (build, ask, memory, agent-run, ...)
 ```
 
 The same checks run in [CI](.github/workflows/ci.yml) on every push/PR.

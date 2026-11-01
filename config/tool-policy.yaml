@@ -1,0 +1,53 @@
+# PAIEP agent tool policy (M6) — least privilege, default-deny (ADR 0006, NFR-021).
+# ---------------------------------------------------------------------------
+# A tool is usable by an agent only if BOTH:
+#   1. it is `enabled: true` here (global kill-switch), AND
+#   2. it is in that persona's `tools:` allow-list (agents/personas/*.yaml).
+# File access is further limited to the persona's fs_scope globs, minus the
+# `deny_globs` below (which no persona can override).
+#
+# approval: required  => the action is QUEUED, never executed in-chain. It runs
+# only after the quality gate passes (Reviewer/Security) AND a human approves
+# (LangGraph interrupt; `agent approve <task>`). Everything is traced.
+# ---------------------------------------------------------------------------
+
+workspace:
+  root: /workspace             # repo bind-mount in the agents container; env AGENT_WORKSPACE overrides
+  # Never readable or writable by any agent (secrets, VCS internals, binaries,
+  # and the guardrail configs themselves — agents cannot rewrite their own policy).
+  deny_globs:
+    - ".git/**"
+    - ".env"
+    - "**/.env"
+    - "**/.env.*"
+    - "**/*.key"
+    - "**/*.pem"
+    - "**/id_rsa*"
+    - "**/*.db"
+    - "**/*.sqlite"
+    - "**/*.gguf"
+    - "**/*.safetensors"
+    - "config/tool-policy.yaml"
+    - "config/agents.yaml"
+    - "config/router.yaml"
+    - "agents/personas/**"
+    - "agents/tools/**"
+    - ".github/workflows/**"
+  max_read_bytes: 20000        # fs.read truncates beyond this
+  max_write_bytes: 60000       # larger proposals are rejected
+  max_list_entries: 200
+
+tools:
+  rag.retrieve: { enabled: true,  risk: low,  approval: none }      # KB/repo index (M4); scope + global
+  memory.read:  { enabled: true,  risk: low,  approval: none }      # M5 recall, scope-filtered
+  memory.write: { enabled: true,  risk: med,  approval: none }      # typed + scoped per persona; user-editable (FR-013)
+  fs.read:      { enabled: true,  risk: low,  approval: none }      # file or directory listing, path-scoped
+  fs.write:     { enabled: true,  risk: med,  approval: required }  # proposals only; applied after gate + approval
+  vcs:          { enabled: true,  risk: med,  approval: none,       # read-only git; no commit/push in M6
+                  subcommands: [status, diff, log] }
+  test.run:     { enabled: true,  risk: med,  approval: required,   # fixed argv, no shell
+                  command: [python, -m, pytest, -q, --no-header, -p, no:cacheprovider],
+                  timeout_s: 300 }
+  shell:        { enabled: false, risk: high }   # opt-in per persona AND here (M10 hardening)
+  container:    { enabled: false, risk: high }   # DevOps only, future
+  web.fetch:    { enabled: false, risk: high }   # offline-first: off

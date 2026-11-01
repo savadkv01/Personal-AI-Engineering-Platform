@@ -1,0 +1,123 @@
+[
+  {
+    "task_id": "2c13dcba-11bf-4647-8a96-cd913562f4a4",
+    "task": "In 3 short bullet points, explain how PAIEP keeps working when the network is disabled. Cite your sources.",
+    "status": "completed",
+    "agent_steps": 1,
+    "llm_calls": 2,
+    "machine_secs": 155.7,
+    "llm_secs": 154.6,
+    "prompt_tokens": 1314,
+    "completion_tokens": 198,
+    "max_call_secs": 113.4,
+    "policy_denials": 0,
+    "tool_calls": 3,
+    "applied": [],
+    "per_agent": {
+      "architect": {
+        "calls": 2,
+        "secs": 154.7,
+        "prompt_tokens": 1314,
+        "completion_tokens": 198
+      }
+    }
+  },
+  {
+    "task_id": "74f88935-1804-4c6e-8141-720f405c67af",
+    "task": "Create experiments/m6_demo/textutils.py with a slugify(text: str) -> str function (lowercase, words joined by single hyp",
+    "status": "rejected",
+    "agent_steps": 4,
+    "llm_calls": 8,
+    "machine_secs": 1041.3,
+    "llm_secs": 1035.9,
+    "prompt_tokens": 7316,
+    "completion_tokens": 1370,
+    "max_call_secs": 242.7,
+    "policy_denials": 0,
+    "tool_calls": 11,
+    "applied": [],
+    "per_agent": {
+      "supervisor": {
+        "calls": 1,
+        "secs": 119.8,
+        "prompt_tokens": 611,
+        "completion_tokens": 117
+      },
+      "software_engineer": {
+        "calls": 2,
+        "secs": 231.6,
+        "prompt_tokens": 1658,
+        "completion_tokens": 378
+      },
+      "documentation_writer": {
+        "calls": 1,
+        "secs": 242.7,
+        "prompt_tokens": 749,
+        "completion_tokens": 489
+      },
+      "reviewer": {
+        "calls": 2,
+        "secs": 220.5,
+        "prompt_tokens": 2130,
+        "completion_tokens": 191
+      },
+      "security": {
+        "calls": 2,
+        "secs": 221.2,
+        "prompt_tokens": 2168,
+        "completion_tokens": 195
+      }
+    }
+  },
+  {
+    "task_id": "f15d7b87-6077-43c2-b83a-58d1257bf1b5",
+    "task": "Create experiments/m6_demo/textutils.py with a slugify(text: str) -> str function (lowercase, words joined by single hyp",
+    "status": "completed",
+    "agent_steps": 4,
+    "llm_calls": 6,
+    "machine_secs": 1065.4,
+    "llm_secs": 1061.3,
+    "prompt_tokens": 5916,
+    "completion_tokens": 1008,
+    "max_call_secs": 241.9,
+    "policy_denials": 0,
+    "tool_calls": 9,
+    "applied": [
+      "experiments/m6_demo/textutils.py",
+      "experiments/m6_demo/test_textutils.py",
+      "experiments/m6_demo/README.md"
+    ],
+    "per_agent": {
+      "supervisor": {
+        "calls": 1,
+        "secs": 115.1,
+        "prompt_tokens": 611,
+        "completion_tokens": 84
+      },
+      "software_engineer": {
+        "calls": 2,
+        "secs": 260.6,
+        "prompt_tokens": 1749,
+        "completion_tokens": 380
+      },
+      "documentation_writer": {
+        "calls": 1,
+        "secs": 241.9,
+        "prompt_tokens": 1009,
+        "completion_tokens": 308
+      },
+      "reviewer": {
+        "calls": 1,
+        "secs": 218.7,
+        "prompt_tokens": 1243,
+        "completion_tokens": 118
+      },
+      "security": {
+        "calls": 1,
+        "secs": 225.0,
+        "prompt_tokens": 1304,
+        "completion_tokens": 118
+      }
+    }
+  }
+]
