@@ -38,4 +38,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose -f docker/docker-compose.yml --profile "*" config -q
+      # docker/.env is git-ignored; validate with the committed placeholders. Secrets such as
+      # WEBUI_SECRET_KEY / MCP_UI_API_KEY are required (`:?`) so the stack never runs on defaults.
+      - run: docker compose --env-file docker/.env.example -f docker/docker-compose.yml --profile "*" config -q
