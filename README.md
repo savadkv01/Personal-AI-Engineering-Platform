@@ -2,7 +2,7 @@
 
 > An enterprise-grade, open-source, offline-first Personal AI Engineering Platform that runs primarily on a local laptop and evolves into a personal AI operating system.
 
-[![Status](https://img.shields.io/badge/status-M6%20implemented-blue)]()
+[![Status](https://img.shields.io/badge/status-M7%20implemented-blue)]()
 [![Phases](https://img.shields.io/badge/phases-10%2F12%20drafted-blue)]()
 [![CI](https://github.com/savadkv01/Personal-AI-Engineering-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/savadkv01/Personal-AI-Engineering-Platform/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-TBD-lightgrey)]()
@@ -85,6 +85,8 @@ Personal-AI-Engineering-Platform/
 ├── scripts/              # Bootstrap and model-pull helper scripts
 ├── memory/               # Memory service (M5): migrations + Python package
 ├── agents/               # Agent runtime (M6): LangGraph orchestrator, YAML personas, tool policy
+├── integration/mcp/      # MCP servers for VS Code clients (M7) and local UI (M8)
+├── templates/workspace/  # cookiecutter: per-repo VS Code / Continue / Cline config (M7)
 ├── knowledge/            # Knowledge base, notes, book library index
 ├── rag/                  # RAG pipelines and configuration
 ├── models/               # Model profiles, quantization notes
@@ -143,6 +145,7 @@ Key decisions are recorded in [docs/adr/](docs/adr/):
 | [0009](docs/adr/0009-vector-store-and-memory.md) | Vector store & memory architecture |
 | [0010](docs/adr/0010-vscode-integration-strategy.md) | VS Code integration strategy |
 | [0011](docs/adr/0011-delivery-milestones.md) | Delivery milestones (M0–M10) |
+| [0012](docs/adr/0012-local-chat-ui.md) | Local chat UI and tool bridge |
 | [0100](docs/adr/0100-gpu-and-reuse-strategy.md) | GPU acceleration & multi-workspace reuse |
 
 ---
@@ -164,9 +167,11 @@ reversible milestones (M0–M10) with per-milestone specs in
 | [M4 — RAG pipeline](implementation/M4-rag-pipeline.md) | ✅ Implemented (2026-07-20) |
 | [M5 — Memory service](implementation/M5-memory.md) | ✅ Implemented (2026-10-31) — [setup](docs/setup/05-memory.md) |
 | [M6 — Agent ecosystem](implementation/M6-agents.md) | ✅ Implemented (2026-11-01) — [setup](docs/setup/06-agents.md) · [agents](agents/README.md) |
-| M7–M10 | ⏳ Planned — each starts only after explicit approval |
+| [M7 — VS Code integration](implementation/M7-vscode-integration.md) | 🟡 Implemented; Continue/Cline UI validation pending — [setup](docs/setup/07-vscode-integration.md) · [MCP servers](integration/mcp/) · [workspace template](templates/workspace/) |
+| [M8 — User interface](implementation/M8-ui.md) | ✅ Complete — Open WebUI on loopback with PAIEP tools; agent changes approved via CLI — [setup](docs/setup/08-ui.md) |
+| M9–M10 | ⏳ Planned — each starts only after explicit approval |
 
-Phases 11–12 and milestones M7+ do not start automatically.
+Phases 11–12 and milestones M8+ do not start automatically.
 
 ### Development checks
 

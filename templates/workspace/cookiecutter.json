@@ -1,0 +1,25 @@
+{
+  "project_name": "my-project",
+  "project_slug": "{{ cookiecutter.project_name.lower().strip().replace(' ', '-').replace('_', '-') }}",
+  "memory_scope": "project:{{ cookiecutter.project_slug }}",
+  "paiep_home": "",
+  "compose_cli": ["docker-compose", "docker compose"],
+  "gateway_url": "http://127.0.0.1:8081/v1",
+  "ollama_url": "http://127.0.0.1:11434",
+  "chat_model": "qwen2.5-coder:7b",
+  "autocomplete_model": "qwen2.5-coder:1.5b-base",
+  "inline_provider": ["continue", "copilot", "none"],
+  "copilot": ["enabled", "disabled"],
+  "copilot_mcp": ["no", "yes"],
+  "agent_client": ["cline", "roo"],
+  "__prompts__": {
+    "project_name": "Workspace / repo name",
+    "memory_scope": "PAIEP scope for RAG, memory and agents (global | project:<name>)",
+    "paiep_home": "Path to the PAIEP checkout (blank = the checkout this template lives in)",
+    "compose_cli": "Compose CLI for MCP launches (docker-compose on Windows/macOS Docker Desktop)",
+    "inline_provider": "The ONE inline completion provider for this workspace",
+    "copilot": "GitHub Copilot in this workspace (disabled = sensitive/private repo)",
+    "copilot_mcp": "Expose PAIEP MCP tools to Copilot agent mode? (tool results go to the cloud model)",
+    "agent_client": "Agentic client (Roo Code is the documented alternative to Cline)"
+  }
+}

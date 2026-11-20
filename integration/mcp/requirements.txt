@@ -1,0 +1,2 @@
+# PAIEP MCP servers (M7) — pinned. Python MCP SDK 2.x (MCPServer, stdio transport).
+mcp==2.3.0

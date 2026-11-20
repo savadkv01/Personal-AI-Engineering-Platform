@@ -126,12 +126,13 @@ def _log_turns(memory, session_id: str | None, question: str, answer_text: str) 
 
 def answer(question: str, *, scope: str | None = None, tags: list[str] | None = None,
            collection: str | None = None, cfg: QueryConfig | None = None,
-           memory=None, session_id: str | None = None) -> Answer:
+           memory=None, session_id: str | None = None, include_global: bool = False) -> Answer:
     cfg = cfg or load_query_config()
     col = collection or cfg.retrieval.collection
 
     memories = recall_memories(question, scope, cfg, memory)
-    candidates = retrieve(question, cfg, collection=col, scope=scope, tags=tags)
+    candidates = retrieve(question, cfg, collection=col, scope=scope, tags=tags,
+                          include_global=include_global)
     chunks = rerank(question, candidates, cfg)
     base = dict(question=question, collection=col, scope=scope, session_id=session_id)
 

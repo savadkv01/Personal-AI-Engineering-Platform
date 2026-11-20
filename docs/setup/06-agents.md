@@ -100,7 +100,7 @@ generation ≈ 3.5 tokens/s. Every 1,000 prompt tokens therefore costs ~2.5 minu
   (planner: ~90 s cold → ~15–30 s warm);
 - runs Ollama with **one slot** (`OLLAMA_NUM_PARALLEL=1`) and an 8k context (`OLLAMA_CONTEXT_LENGTH`),
   so sequential calls hit the same cache and RAM stays low;
-- caps generation per tier (`router.yaml tier_options`) under the gateway's 600 s read timeout.
+- caps generation per tier (`router.yaml tier_options`) under the gateway's read timeout (1800 s since M8; was 600 s).
 
 Expect **minutes per agent step** and **10–25 minutes** for a multi-agent task with review on A+. Profiles
 B–D (GPU) cut this by an order of magnitude; raise `context.*`, `max_tool_steps_per_agent` and

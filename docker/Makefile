@@ -9,7 +9,8 @@ ARGS    ?=
 
 .DEFAULT_GOAL := help
 .PHONY: help config up down ps logs health restart clean nuke \
-        build qdrant-init ingest ask eval bench test memory migrate agent agent-run
+        build qdrant-init ingest ask eval bench test memory migrate agent agent-run \
+        mcp-up mcp-list mcp-smoke workspace ui-up ui-down ui-logs
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -76,6 +77,31 @@ agent: ## Agent CLI (M6). ARGS='personas --all' | 'approve <id>' | 'list' (see A
 agent-run: ## Run an agent task (M6). T="task" [ARGS="--scope project:x --agent architect"]
 	@if [ -z "$(T)" ]; then echo 'Usage: make agent-run T="your task" [ARGS=...]'; exit 1; fi
 	$(COMPOSE) --profile agents run --rm agents run "$(T)" $(ARGS)
+
+# --- VS Code integration / MCP (M7) -------------------------------------------
+
+mcp-up: ## Start the shared backend the MCP servers use (gateway, ollama, qdrant, postgres)
+	$(COMPOSE) --profile mcp up -d gateway qdrant postgres
+
+mcp-list: ## Capability check: tools each MCP server registers. ARGS="fs git" (default: all)
+	$(COMPOSE) --profile mcp run --rm -T --no-deps mcp-local $(or $(ARGS),all) --list
+
+mcp-smoke: ## Launch every MCP server like an editor and probe it (host: pip install -r requirements-dev.txt)
+	cd .. && python scripts/mcp-smoke.py --compose "$(COMPOSE)" $(ARGS)
+
+workspace: ## Scaffold editor config into a repo. DIR=../my-repo NAME=my-repo [ARGS="copilot=disabled"]
+	@if [ -z "$(DIR)" ]; then echo 'Usage: make workspace DIR=<parent dir> NAME=<repo name> [ARGS=...]'; exit 1; fi
+	cookiecutter $(abspath ../templates/workspace) -o "$(DIR)" --no-input --overwrite-if-exists \
+	  --skip-if-file-exists project_name="$(NAME)" project_slug="$(NAME)" paiep_home="$(abspath ..)" $(ARGS)
+
+ui-up: ## Start the optional local Open WebUI client + PAIEP tool bridge (M8)
+	$(COMPOSE) --profile ui up -d ui
+
+ui-down: ## Stop the M8 UI and its MCP-to-OpenAPI bridge (preserves UI data)
+	$(COMPOSE) --profile ui stop ui paiep-tools-api
+
+ui-logs: ## Follow Open WebUI and PAIEP tool bridge logs (M8)
+	$(COMPOSE) --profile ui logs -f ui paiep-tools-api
 
 test: ## Lint + offline unit tests (host; pip install -r requirements-dev.txt first)
 	cd .. && ruff check . && pytest

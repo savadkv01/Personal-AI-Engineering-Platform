@@ -1,0 +1,4 @@
+# MCPO v0.0.20 uses the MCP 1.x client API; keep it isolated from PAIEP's MCP 2.3 server.
+mcpo==0.0.20
+mcp==1.30.0
+fastapi==0.115.12

@@ -11,6 +11,7 @@
 #   embed  - embeddings for RAG + memory
 #   draft  - small speculative/draft model (optional)
 #   reason - optional reasoning specialist (optional)
+#   autocomplete - small *base* (FIM) coder for editor tab completion (M7, Phase 09 §7)
 # ---------------------------------------------------------------------------
 
 profiles:
@@ -21,6 +22,7 @@ profiles:
     embed: nomic-embed-text       # embeddings default (ADR 0004/0007)
     draft: null                   # enable later for speculative decoding
     reason: null                  # e.g. phi4 / deepseek-r1 distill (optional)
+    autocomplete: qwen2.5-coder:1.5b-base  # ~1 GB; Continue tab completion (M7)
 
   # Profiles B/C: consumer/workstation GPU — larger/faster models, GPU offload.
   gpu:
@@ -28,6 +30,7 @@ profiles:
     embed: nomic-embed-text
     draft: llama3.2:1b            # draft model for speculative decoding
     reason: phi4
+    autocomplete: qwen2.5-coder:3b-base
 
   # Profile D: always-on home server — heavier reasoning, optional vLLM later.
   server:
@@ -35,6 +38,7 @@ profiles:
     embed: mxbai-embed-large
     draft: llama3.2:1b
     reason: phi4
+    autocomplete: qwen2.5-coder:7b-base
 
 # Which tiers pull-models.sh pulls by default (skips null entries).
-pull_order: [chat, embed, draft, reason]
+pull_order: [chat, embed, draft, reason, autocomplete]

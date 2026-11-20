@@ -1,0 +1,22 @@
+{%- set cli = cookiecutter.compose_cli.split(' ') -%}
+{
+  "mcpServers": {
+    "paiep-local": {
+      "command": "{{ cli[0] }}",
+      "args": [{% for a in cli[1:] %}"{{ a }}", {% endfor %}"-f", "__PAIEP_HOME__/docker/docker-compose.yml", "--profile", "mcp",
+               "run", "--rm", "-T", "mcp-local", "fs", "git"],
+      "env": { "PAIEP_WORKSPACE": "__PAIEP_WORKSPACE__", "PAIEP_SCOPE": "{{ cookiecutter.memory_scope }}" },
+      "timeout": 120,
+      "alwaysAllow": ["fs_list", "fs_read", "fs_search", "fs_propose_write",
+                      "git_status", "git_diff", "git_log", "git_show", "git_branches"]
+    },
+    "paiep": {
+      "command": "{{ cli[0] }}",
+      "args": [{% for a in cli[1:] %}"{{ a }}", {% endfor %}"-f", "__PAIEP_HOME__/docker/docker-compose.yml", "--profile", "mcp",
+               "run", "--rm", "-T", "mcp", "rag", "memory", "paiep-tools"],
+      "env": { "PAIEP_WORKSPACE": "__PAIEP_WORKSPACE__", "PAIEP_SCOPE": "{{ cookiecutter.memory_scope }}" },
+      "timeout": 900,
+      "alwaysAllow": ["rag_search", "memory_recall", "memory_list", "agent_personas", "agent_status", "agent_list"]
+    }
+  }
+}

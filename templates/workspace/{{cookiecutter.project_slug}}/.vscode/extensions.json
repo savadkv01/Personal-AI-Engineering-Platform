@@ -1,0 +1,14 @@
+{
+  // PAIEP clients (Phase 09 §5.2): Continue = assist/autocomplete, {{ "Cline" if cookiecutter.agent_client == "cline" else "Roo Code" }} = agentic tasks.
+  "recommendations": [
+    "continue.continue",
+    "{{ 'saoudrizwan.claude-dev' if cookiecutter.agent_client == 'cline' else 'rooveterinaryinc.roo-cline' }}",
+    "ms-azuretools.vscode-containers",
+    "bierner.markdown-mermaid"
+  ],
+  "unwantedRecommendations": [
+    "{{ 'rooveterinaryinc.roo-cline' if cookiecutter.agent_client == 'cline' else 'saoudrizwan.claude-dev' }}"{% if cookiecutter.copilot == "disabled" %},
+    "github.copilot",
+    "github.copilot-chat"{% endif %}
+  ]
+}
