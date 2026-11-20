@@ -1,5 +1,5 @@
-# PAIEP Python runtime image (M3+) — shared by ingest (M3), rag (M4), memory (M5)
-# and agents (M6); each Compose service picks its own entrypoint.
+# PAIEP Python runtime image (M3+) — shared by ingest (M3), rag (M4), memory (M5),
+# agents (M6) and the MCP servers (M7); each Compose service picks its own entrypoint.
 # Built from the repo root (context: ..) so it can COPY the packages, CLIs and
 # config. The knowledge corpus / workspace are mounted at runtime.
 # Cached python:3.11-slim base -> offline-friendly after first build.
@@ -20,16 +20,25 @@ RUN pip install --no-cache-dir "pip @ https://files.pythonhosted.org/packages/3f
 # Install deps first for layer caching.
 COPY rag/ingest/requirements.txt /app/requirements.txt
 COPY agents/requirements.txt /app/requirements-agents.txt
-RUN pip install --no-cache-dir -r requirements.txt -r requirements-agents.txt
+COPY integration/mcp/requirements.txt /app/requirements-mcp.txt
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-agents.txt -r requirements-mcp.txt
+
+# MCPO v0.0.20 depends on the MCP 1.x client API. Isolate that client in a
+# separate venv so the PAIEP servers keep using their pinned MCP 2.3.0 runtime.
+COPY integration/mcp/mcpo-requirements.txt /app/requirements-mcpo.txt
+RUN python -m venv /opt/mcpo \
+    && /opt/mcpo/bin/pip install --no-cache-dir -r /app/requirements-mcpo.txt
 
 # App code + config (corpus is mounted read-only at /app/knowledge).
 COPY rag /app/rag
 COPY memory /app/memory
 COPY agents /app/agents
+COPY integration /app/integration
 COPY scripts/ingest.py /app/scripts/ingest.py
 COPY scripts/rag-query.py /app/scripts/rag-query.py
 COPY scripts/memory-cli.py /app/scripts/memory-cli.py
 COPY scripts/agent-cli.py /app/scripts/agent-cli.py
+COPY scripts/mcp-server.py /app/scripts/mcp-server.py
 COPY config /app/config
 
 ENV PYTHONPATH=/app \

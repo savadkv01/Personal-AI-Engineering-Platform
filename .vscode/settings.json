@@ -1,0 +1,11 @@
+{
+  // PAIEP repo settings (M7). One inline completion provider per workspace (Phase 09 §4.2):
+  // this public repo uses Copilot inline; Continue is used for local chat/agent work.
+  "continue.enableTabAutocomplete": false,
+  "continue.telemetryEnabled": false,
+  "github.copilot.enable": { "*": true },
+  "files.exclude": { "**/__pycache__": true, "**/.ruff_cache": true },
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["tests"],
+  "[python]": { "editor.rulers": [110] }
+}

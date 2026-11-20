@@ -1,0 +1,12 @@
+{
+  // PAIEP default client pair (ADR 0010): Continue = assist/autocomplete, Cline = agent.
+  // Roo Code is an alternative to Cline — install one agent, not both.
+  "recommendations": [
+    "continue.continue",
+    "saoudrizwan.claude-dev",
+    "ms-python.python",
+    "charliermarsh.ruff",
+    "ms-azuretools.vscode-containers",
+    "bierner.markdown-mermaid"
+  ]
+}

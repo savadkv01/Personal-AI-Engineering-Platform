@@ -62,3 +62,41 @@ surface, the Copilot boundary, and the workspace-config approach.
 - Re-evaluate **Roo Code vs. Cline** after hands-on use; consolidate on one agent.
 - Add **health/status** editor integration and latency dashboards (Phase 11).
 - Pin client versions + MCP capabilities at M7.
+
+## Amendment — M7 implementation (2026-11-20)
+
+- **Status:** Accepted (refines decisions #2, #3 and #5; no reversal)
+- **Context:** Building M7 showed (a) the reference MCP fs/git servers do not hide secrets (`.env`, keys)
+  and the git one exposes commit/reset/checkout, (b) MCP clients spawn stdio servers with a **minimal
+  environment**, in which Windows' `docker compose` cannot find its plugin, (c) Copilot agent mode can
+  consume the same MCP servers, which would send PAIEP tool results to a cloud model, and (d) the gateway
+  publishes on host port **8081** (8080 is the M0 probe).
+- **Decision:**
+  1. **Custom thin MCP servers** on the Python MCP SDK **2.3.0** ([`integration/mcp/`](../../integration/mcp/)),
+     reusing the M6 path policy; policy lives server-side in [`config/mcp.yaml`](../../config/mcp.yaml);
+     disabled tools are not registered; side effects carry `destructiveHint`; fs writes are two-step
+     (diff → approved apply); git has **no commit/push** tools; every call is audited (JSONL until M9).
+  2. Servers run in the shared image via Compose: **`mcp-local`** (fs, git) with `network_mode: none` and
+     **`mcp`** (rag, memory, paiep-tools) on the internal backend network — two containers per client
+     (grouping is a CLI option; five separate servers remain possible).
+  3. Clients target **`http://127.0.0.1:8081/v1`**; Continue autocomplete uses a `qwen2.5-coder:1.5b-base`
+     **base** model on Ollama-native (new `autocomplete` tier in `config/models.yaml`).
+  4. **cookiecutter 2.7.1** template ([`templates/workspace/`](../../templates/workspace/)) generates VS Code,
+     Continue, Cline/Roo and Copilot files; `.vscode/mcp.json` (Copilot) is **opt-in** (`copilot_mcp=yes`)
+     and `copilot=disabled` sets `chat.disableAIFeatures` for sensitive repos. Windows configs launch with
+     Docker Desktop's `docker-compose` binary.
+- **Alternatives:** reference servers (rejected: secret exposure, no offline first run); five containers per
+  client (heavier, kept as an option); host-Python servers (faster start, weaker isolation — documented
+  fallback for Profile A); Copier (template updates; deferred).
+- **Review hardening (2026-11-20):** a pre-approval review closed: (a) `git_diff` with a directory/`.` path
+  dropped the secret excludes — excludes now apply to every pathspec; (b) agent tasks were addressable by
+  bare id across workspaces sharing `/data`, so B could approve A's proposals into B's tree — tasks are now
+  bound to the starting workspace (`PAIEP_WORKSPACE_ID`, the host path) + scope; (c) short free-text audit
+  arguments (memories, queries) were stored in plaintext, defeating `memory_forget` (FR-013) — now always
+  hashed; plus atomic writes, refusal to rewrite non-UTF-8 files, `core.hooksPath` disabled, and Windows
+  host alias guards. **Assumption:** `PAIEP_SCOPE` is client-selected, not authenticated — fine for one
+  user on one machine; a shared Profile D backend needs per-user credentials.
+- **Consequences:** consistent guardrails for every client including Copilot; ~2–4 s server start per
+  editor session; one more image dependency (`mcp`). See
+  [`implementation/M7-vscode-integration.md`](../../implementation/M7-vscode-integration.md) and
+  [`docs/setup/07-vscode-integration.md`](../setup/07-vscode-integration.md).

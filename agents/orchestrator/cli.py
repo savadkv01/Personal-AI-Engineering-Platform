@@ -31,6 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--agent", default=None, help="skip planning; send to one persona")
     run.add_argument("--no-prompt", action="store_true",
                      help="never ask interactively; leave approval pending")
+    run.add_argument("--task-id", default=None, help="use this task id (UUID) instead of a new one")
     a = sub.add_parser("approve", help="approve pending changes and apply them")
     a.add_argument("task_id")
     a.add_argument("--path", action="append", default=None, help="approve only these paths (repeatable)")
@@ -130,7 +131,7 @@ def _dispatch(args, rt) -> int:
                 print(f"  clarify: {out['clarify']}")
         return 0
     if args.cmd == "run":
-        v = rt.start(args.task, scope=args.scope, agent=args.agent,
+        v = rt.start(args.task, scope=args.scope, agent=args.agent, task_id=args.task_id,
                      on_update=None if args.json else _progress)
         if v["status"] == "awaiting_approval" and not args.no_prompt and not args.json and sys.stdin.isatty():
             _print_approval(v)

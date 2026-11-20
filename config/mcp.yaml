@@ -1,0 +1,103 @@
+# PAIEP MCP servers (M7) — editor bridge policy (Phase 09 §3, ADR 0010, ADR 0006).
+# ---------------------------------------------------------------------------
+# Five local, offline MCP servers expose PAIEP to VS Code clients (Continue,
+# Cline, Roo Code, Copilot agent mode). Each server is a thin adapter over an
+# existing PAIEP service and enforces least privilege HERE, server-side —
+# client-side "auto-approve" settings can never widen it.
+#
+#   fs           read/search/write files in the mounted workspace (path-scoped)
+#   git          read-mostly git (status/diff/log/show/branches) + create_branch
+#   rag          read-only knowledge-base search / grounded answer (scope-filtered)
+#   memory       recall + scoped remember/forget (user-deletable, FR-013)
+#   paiep-tools  agent orchestrator (M6): route/run/status/approve/reject
+#
+# Disabled tools are NOT REGISTERED (the model never sees them). Side-effecting
+# tools carry MCP `destructiveHint` so clients ask before running them; fs
+# writes are additionally two-step (propose -> diff -> apply).
+# Env overrides: MCP_CONFIG, MCP_WORKSPACE, PAIEP_SCOPE, MCP_AUDIT_DIR.
+# ---------------------------------------------------------------------------
+
+workspace:
+  root: /workspace          # bind-mounted editor workspace (PAIEP_WORKSPACE on the host)
+  # Never readable or writable through MCP (secrets, VCS internals, binaries, local DBs).
+  deny_globs:
+    - ".git/**"
+    - ".env"
+    - "**/.env"
+    - "**/.env.*"
+    - "**/*.key"
+    - "**/*.pem"
+    - "**/id_rsa*"
+    - "**/*.db"
+    - "**/*.sqlite"
+    - "**/*.gguf"
+    - "**/*.safetensors"
+  # Readable but never writable: the AI may not rewrite its own guardrails,
+  # client config or CI (same principle as M6 agents and their tool policy).
+  write_deny_globs:
+    - ".vscode/**"
+    - ".continue/**"
+    - ".clinerules/**"
+    - ".roo/**"
+    - ".github/workflows/**"
+    - ".github/copilot-instructions.md"
+    - "config/mcp.yaml"
+    - "config/tool-policy.yaml"
+    - "agents/personas/**"
+    - "agents/tools/**"
+    - "integration/mcp/**"
+  # Directories skipped by listings and search (noise / size).
+  skip_dirs: [".git", "node_modules", ".venv", "venv", "__pycache__", ".mypy_cache", ".ruff_cache",
+              ".pytest_cache", "dist", "build"]
+  max_read_bytes: 40000     # fs_read truncates beyond this (use offset to page)
+  max_write_bytes: 60000    # larger write proposals are rejected
+  max_list_entries: 300
+  max_search_files: 4000    # files scanned per fs_search
+  max_search_results: 50
+
+servers:
+  fs:
+    enabled: true
+    read_scope: ["**"]          # globs (workspace-relative) readable by the client
+    write_scope: ["**"]         # globs writable (minus write_deny_globs)
+    write: true                 # register fs_propose_write / fs_apply_write
+    proposal_ttl_s: 900         # an un-applied proposal expires after 15 min
+
+  git:
+    enabled: true
+    log_max: 50
+    create_branch: true         # local `git branch` / `git switch -c` (approval via client)
+    # No commit/push tools in M7: committing and pushing stay human actions
+    # (push needs network + credentials; ADR 0006 "push = confirm").
+
+  rag:
+    enabled: true
+    include_global: true        # project scope also searches `global` docs
+    max_results: 8
+    answer: true                # rag_answer = full M4 pipeline (slow on CPU: 1-3 min)
+    # Scopes a client may request. "${scope}" = the server's scope (PAIEP_SCOPE).
+    allowed_scopes: ["${scope}", "global"]
+
+  memory:
+    enabled: true
+    include_global: true        # recall in a project scope also returns global memories
+    max_results: 10
+    write: true                 # register memory_remember
+    forget: true                # register memory_forget (hard delete, FR-013)
+    write_types: [fact, preference, decision, note]
+    # Writes/deletes only in the server's own scope; `global` too when listed here.
+    writable_scopes: ["${scope}"]
+
+  paiep-tools:
+    enabled: true
+    run: true                   # register agent_run / agent_approve / agent_reject
+    max_running: 1              # CPU: one agent chain at a time (single inference slot)
+    approve_timeout_s: 1800     # apply + approved test actions
+    status_timeout_s: 120
+
+default_scope: global           # used when PAIEP_SCOPE is unset (e.g. project:my-repo)
+
+audit:
+  dir: /data/mcp-audit          # JSONL per day; falls back to ~/.paiep/mcp-audit
+  max_arg_chars: 300            # longer arguments are logged as length + sha256; free text
+                                # (content/query/question/task) is ALWAYS hashed, never stored

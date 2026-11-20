@@ -1,0 +1,24 @@
+{
+  // PAIEP MCP servers for THIS repo in VS Code agent mode (M7). Portable: paths use
+  // ${workspaceFolder}. Requires the backend: make -C docker up PROFILE=mcp (or see
+  // docs/setup/07-vscode-integration.md). docker-compose (Docker Desktop) is used because
+  // MCP clients spawn servers with a minimal environment; on Linux use "docker" + "compose".
+  // PRIVACY: Copilot's model is cloud-hosted; tool results (KB passages, memories, files)
+  // leave the machine. Acceptable for this public repo — do NOT copy to private repos.
+  "servers": {
+    "paiep-local": {
+      "type": "stdio",
+      "command": "docker-compose",
+      "args": ["-f", "${workspaceFolder}/docker/docker-compose.yml", "--profile", "mcp",
+               "run", "--rm", "-T", "mcp-local", "fs", "git"],
+      "env": { "PAIEP_WORKSPACE": "${workspaceFolder}", "PAIEP_SCOPE": "global" }
+    },
+    "paiep": {
+      "type": "stdio",
+      "command": "docker-compose",
+      "args": ["-f", "${workspaceFolder}/docker/docker-compose.yml", "--profile", "mcp",
+               "run", "--rm", "-T", "mcp", "rag", "memory", "paiep-tools"],
+      "env": { "PAIEP_WORKSPACE": "${workspaceFolder}", "PAIEP_SCOPE": "global" }
+    }
+  }
+}

@@ -1,0 +1,54 @@
+# Restricted MCP surface for Open WebUI. The Open WebUI model can call tools without
+# a separate per-call human approval step, so write/apply/forget/reject tools are absent.
+workspace:
+  root: /workspace
+  deny_globs:
+    - ".git/**"
+    - ".env"
+    - "**/.env"
+    - "**/.env.*"
+    - "**/*.key"
+    - "**/*.pem"
+    - "**/id_rsa*"
+    - "**/*.db"
+    - "**/*.sqlite"
+    - "**/*.gguf"
+    - "**/*.safetensors"
+  write_deny_globs: ["**"]
+  skip_dirs: [".git", "node_modules", ".venv", "venv", "__pycache__", ".mypy_cache", ".ruff_cache",
+              ".pytest_cache", "dist", "build"]
+  max_read_bytes: 40000
+  max_write_bytes: 60000
+  max_list_entries: 300
+  max_search_files: 4000
+  max_search_results: 50
+
+servers:
+  rag:
+    enabled: true
+    include_global: true
+    max_results: 8
+    # The UI chat model already writes the answer from rag_search passages; rag_answer would add
+    # a second multi-minute CPU generation per question (editors keep it via config/mcp.yaml).
+    answer: false
+    allowed_scopes: ["${scope}", "global"]
+  memory:
+    enabled: true
+    include_global: true
+    max_results: 10
+    write: false
+    forget: false
+  paiep-tools:
+    enabled: true
+    run: true
+    approve: false
+    reject: false
+    max_running: 1
+    approve_timeout_s: 1800
+    status_timeout_s: 120
+
+default_scope: global
+
+audit:
+  dir: /data/mcp-audit
+  max_arg_chars: 300

@@ -179,6 +179,19 @@ def test_answer_grounded_returns_only_cited_sources(cfg, monkeypatch):
     assert res.as_dict()["citations"][0]["source"] == "knowledge/notes/2.md"
 
 
+def test_answer_can_include_global_documents_for_project_scope(cfg, monkeypatch):
+    seen = {}
+
+    def fake_retrieve(*args, **kwargs):
+        seen.update(kwargs)
+        return [chunk(1)]
+
+    monkeypatch.setattr(engine, "retrieve", fake_retrieve)
+    monkeypatch.setattr(engine, "generate", lambda *a, **k: "Grounded [1].")
+    engine.answer("q", cfg=cfg, scope="project:demo", include_global=True)
+    assert seen["scope"] == "project:demo" and seen["include_global"] is True
+
+
 # --- M5 memory in context ------------------------------------------------------
 
 class FakeMemory:

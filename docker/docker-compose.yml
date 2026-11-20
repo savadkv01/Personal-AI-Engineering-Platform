@@ -35,6 +35,8 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME:-paiep}_kb
   paiep_memory:
     name: ${COMPOSE_PROJECT_NAME:-paiep}_memory
+  paiep_ui:
+    name: ${COMPOSE_PROJECT_NAME:-paiep}_ui
 
 services:
   # -------------------------------------------------------------------------
@@ -76,7 +78,7 @@ services:
   ollama:
     image: ${OLLAMA_IMAGE:-ollama/ollama:0.6.2}
     container_name: ${COMPOSE_PROJECT_NAME:-paiep}_ollama
-    profiles: ["inference", "gateway", "spike", "ingest", "rag", "memory", "agents"]
+    profiles: ["inference", "gateway", "spike", "ingest", "rag", "memory", "agents", "mcp", "ui"]
     restart: unless-stopped
     networks: [edge, backend]
     ports:
@@ -109,7 +111,7 @@ services:
   gateway:
     image: ${GATEWAY_IMAGE:-nginx:1.27-alpine}
     container_name: ${COMPOSE_PROJECT_NAME:-paiep}_gateway
-    profiles: ["gateway", "spike", "agents"]
+    profiles: ["gateway", "spike", "agents", "mcp", "ui"]
     restart: unless-stopped
     depends_on:
       ollama:
@@ -144,7 +146,7 @@ services:
   qdrant:
     image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.12.6}
     container_name: ${COMPOSE_PROJECT_NAME:-paiep}_qdrant
-    profiles: ["vectordb", "spike", "ingest", "rag", "memory", "agents"]
+    profiles: ["vectordb", "spike", "ingest", "rag", "memory", "agents", "mcp", "ui"]
     restart: unless-stopped
     networks: [edge, backend]
     ports:
@@ -272,7 +274,7 @@ services:
   postgres:
     image: ${POSTGRES_IMAGE:-postgres:16.14-alpine}
     container_name: ${COMPOSE_PROJECT_NAME:-paiep}_postgres
-    profiles: ["memory", "rag", "agents"]
+    profiles: ["memory", "rag", "agents", "mcp", "ui"]
     restart: unless-stopped
     networks: [edge, backend]
     ports:
@@ -367,10 +369,229 @@ services:
       - MEMORY_CONFIG=${MEMORY_CONFIG:-/app/config/memory.yaml}
       - AGENT_WORKSPACE=/workspace
       - AGENT_TRACE_DIR=/data/agent-traces
+      # Match the host checkout's line endings (Windows: core.autocrlf=true) so git
+      # status/diff inside the container do not report every CRLF file as modified.
+      - GIT_CONFIG_COUNT=1
+      - GIT_CONFIG_KEY_0=core.autocrlf
+      - GIT_CONFIG_VALUE_0=${PAIEP_GIT_AUTOCRLF:-false}
       # Offline-first: never ship traces to LangSmith (LangGraph dependency).
       - LANGSMITH_TRACING=false
       - LANGCHAIN_TRACING_V2=false
     volumes:
       - ../config:/app/config:ro
-      - ..:/workspace
+      - ${PAIEP_WORKSPACE:-..}:/workspace
       - paiep_memory:/data
+
+  # -------------------------------------------------------------------------
+  # mcp-local / mcp — MCP servers for VS Code clients over stdio. [M7]
+  # Editors (Continue, Cline, Roo, Copilot agent mode) launch them on demand:
+  #   docker compose -f <paiep>/docker/docker-compose.yml --profile mcp \
+  #     run --rm -T mcp-local fs        # fs | git        (NO network at all)
+  #   ... run --rm -T mcp rag           # rag | memory | paiep-tools (backend only)
+  # PAIEP_WORKSPACE = the editor's workspace folder (bind-mounted at /workspace);
+  # PAIEP_SCOPE = project:<name> (RAG/memory/agent scope). Policy: config/mcp.yaml.
+  # Audit trail: paiep_memory volume, /data/mcp-audit/<date>.jsonl.
+  # -------------------------------------------------------------------------
+  mcp-local:
+    build:
+      context: ..
+      dockerfile: rag/ingest/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-paiep}_ingest
+    profiles: ["mcp"]
+    restart: "no"
+    network_mode: none # fs/git never need a network: defense in depth
+    stdin_open: true
+    entrypoint: ["python", "/app/scripts/mcp-server.py"]
+    command: ["fs"]
+    environment:
+      - MCP_WORKSPACE=/workspace
+      - PAIEP_WORKSPACE_ID=${PAIEP_WORKSPACE:-..} # host path: binds agent tasks to this workspace
+      - PAIEP_SCOPE=${PAIEP_SCOPE:-global}
+      - MCP_AUDIT_DIR=/data/mcp-audit
+      - GIT_CONFIG_COUNT=1 # host line-ending policy (see agents)
+      - GIT_CONFIG_KEY_0=core.autocrlf
+      - GIT_CONFIG_VALUE_0=${PAIEP_GIT_AUTOCRLF:-false}
+    volumes:
+      - ../config:/app/config:ro
+      - ${PAIEP_WORKSPACE:-..}:/workspace
+      - paiep_memory:/data
+
+  mcp:
+    build:
+      context: ..
+      dockerfile: rag/ingest/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-paiep}_ingest
+    profiles: ["mcp"]
+    restart: "no"
+    depends_on:
+      gateway:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+    stdin_open: true
+    entrypoint: ["python", "/app/scripts/mcp-server.py"]
+    command: ["rag"]
+    environment:
+      - MCP_WORKSPACE=/workspace
+      - PAIEP_WORKSPACE_ID=${PAIEP_WORKSPACE:-..} # host path: binds agent tasks to this workspace
+      - PAIEP_SCOPE=${PAIEP_SCOPE:-global}
+      - MCP_AUDIT_DIR=/data/mcp-audit
+      - GIT_CONFIG_COUNT=1 # host line-ending policy (see agents)
+      - GIT_CONFIG_KEY_0=core.autocrlf
+      - GIT_CONFIG_VALUE_0=${PAIEP_GIT_AUTOCRLF:-false}
+      # rag + memory backends (as the rag/memory services)
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - QDRANT_URL=http://qdrant:6333
+      - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
+      - CHAT_MODEL=${CHAT_MODEL:-qwen2.5-coder:7b}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-paiep-local-dev-password}
+      - MEMORY_CONFIG=${MEMORY_CONFIG:-/app/config/memory.yaml}
+      # paiep-tools -> agent orchestrator (as the agents service)
+      - ROUTER_BASE_URL=http://gateway/v1
+      - GATEWAY_TOKEN=${GATEWAY_TOKEN:-paiep-local-dev-token}
+      - PAIEP_PROFILE=${PAIEP_PROFILE:-cpu}
+      - AGENT_WORKSPACE=/workspace
+      - AGENT_TRACE_DIR=/data/agent-traces
+      - LANGSMITH_TRACING=false
+      - LANGCHAIN_TRACING_V2=false
+    volumes:
+      - ../config:/app/config:ro
+      - ${PAIEP_WORKSPACE:-..}:/workspace
+      - paiep_memory:/data
+
+  # -------------------------------------------------------------------------
+  # paiep-mcp-http — UI-safe MCP server using PAIEP's pinned MCP 2.3.0 API. [M8]
+  # Internal only; the separate MCPO 1.x environment connects over streamable HTTP.
+  # -------------------------------------------------------------------------
+  paiep-mcp-http:
+    build:
+      context: ..
+      dockerfile: rag/ingest/Dockerfile
+    image: ${COMPOSE_PROJECT_NAME:-paiep}_ingest
+    profiles: ["ui"]
+    restart: unless-stopped
+    depends_on:
+      gateway:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+    entrypoint: ["python", "/app/scripts/mcp-server.py"]
+    command:
+      - rag
+      - memory
+      - paiep-tools
+      - --transport
+      - streamable-http
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8001"
+    environment:
+      - MCP_CONFIG=/app/config/mcp-ui.yaml
+      - MCP_WORKSPACE=/workspace
+      - PAIEP_WORKSPACE_ID=${PAIEP_WORKSPACE:-..}
+      - PAIEP_SCOPE=${PAIEP_SCOPE:-global}
+      - MCP_AUDIT_DIR=/data/mcp-audit
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - QDRANT_URL=http://qdrant:6333
+      - EMBED_MODEL=${EMBED_MODEL:-nomic-embed-text}
+      - CHAT_MODEL=${CHAT_MODEL:-qwen2.5-coder:7b}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-paiep-local-dev-password}
+      - MEMORY_CONFIG=${MEMORY_CONFIG:-/app/config/memory.yaml}
+      - ROUTER_BASE_URL=http://gateway/v1
+      - GATEWAY_TOKEN=${GATEWAY_TOKEN:-paiep-local-dev-token}
+      - PAIEP_PROFILE=${PAIEP_PROFILE:-cpu}
+      - AGENT_WORKSPACE=/workspace
+      - AGENT_TRACE_DIR=/data/agent-traces
+      - LANGSMITH_TRACING=false
+      - LANGCHAIN_TRACING_V2=false
+    volumes:
+      - ../config:/app/config:ro
+      - ${PAIEP_WORKSPACE:-..}:/workspace:ro
+      - paiep_memory:/data
+
+  # paiep-tools-api — authenticated MCP-to-OpenAPI bridge for Open WebUI. [M8]
+  # MCPO uses its own MCP 1.x venv and adapts this MCP 2.3.0 server over HTTP.
+  # The bridge is backend-only; the UI policy disables writes and agent approval.
+  # -------------------------------------------------------------------------
+  paiep-tools-api:
+    image: ${COMPOSE_PROJECT_NAME:-paiep}_ingest
+    profiles: ["ui"]
+    restart: unless-stopped
+    depends_on:
+      paiep-mcp-http:
+        condition: service_started
+    networks: [backend]
+    entrypoint: ["/opt/mcpo/bin/mcpo"]
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --api-key
+      - ${MCP_UI_API_KEY:?Set MCP_UI_API_KEY in docker/.env}
+      - --strict-auth
+      - --server-type
+      - streamable-http
+      - --
+      - http://paiep-mcp-http:8001/mcp
+
+  # -------------------------------------------------------------------------
+  # ui — optional Open WebUI chat client, exposed only on loopback. [M8]
+  # First account becomes the local admin; signup closes after that. Persistent
+  # app state and the stable secret key preserve sessions/config across restarts.
+  # -------------------------------------------------------------------------
+  ui:
+    image: ${OPENWEBUI_IMAGE:-ghcr.io/open-webui/open-webui:v0.13.4}
+    container_name: ${COMPOSE_PROJECT_NAME:-paiep}_ui
+    profiles: ["ui"]
+    restart: unless-stopped
+    depends_on:
+      gateway:
+        condition: service_healthy
+      paiep-tools-api:
+        condition: service_started
+    networks: [edge, backend]
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${OPENWEBUI_HOST_PORT:-8082}:8080"
+    environment:
+      - WEBUI_AUTH=true
+      - ENABLE_SIGNUP=true
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:?Set WEBUI_SECRET_KEY in docker/.env}
+      - RAG_EMBEDDING_ENGINE=ollama
+      - RAG_EMBEDDING_MODEL=${EMBED_MODEL:-nomic-embed-text}
+      - RAG_OLLAMA_BASE_URL=http://ollama:11434
+      - RAG_EMBEDDING_MODEL_AUTO_UPDATE=false
+      # CPU-only defaults (seed a new volume; Admin Settings win afterwards). Each background
+      # task is an extra LLM call on Ollama's single slot, and built-in tools/memories add
+      # thousands of prompt tokens: on 4 cores (~5 prompt tok/s) that exceeded the gateway's
+      # then-600 s timeout (now 1800 s).
+      - ENABLE_OLLAMA_API=false
+      - ENABLE_TITLE_GENERATION=false
+      - ENABLE_TAGS_GENERATION=false
+      - ENABLE_FOLLOW_UP_GENERATION=false
+      - ENABLE_RETRIEVAL_QUERY_GENERATION=false
+      - ENABLE_SEARCH_QUERY_GENERATION=false
+      - ENABLE_CODE_INTERPRETER=false
+      - ENABLE_MEMORIES=false
+      # vision=false: the default local models are text-only; Open WebUI then blocks image
+      # attachments instead of sending >1 MB base64 bodies the gateway rejects (413).
+      - 'DEFAULT_MODEL_METADATA={"capabilities":{"builtin_tools":false,"vision":false}}'
+    volumes:
+      - paiep_ui:/app/backend/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3).read()"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
